@@ -1,7 +1,7 @@
 package com.example.dsa;
 
-import com.example.dsa.entity.Submission;
-import com.example.dsa.service.LeetCodeClient;
+import com.example.dsa.platform.Submission;
+import com.example.dsa.platform.LeetCodeClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

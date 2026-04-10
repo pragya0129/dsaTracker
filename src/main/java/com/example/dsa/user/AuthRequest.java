@@ -1,4 +1,4 @@
-package com.example.dsa.entity;
+package com.example.dsa.user;
 
 public class AuthRequest {
 

@@ -1,6 +1,5 @@
-package com.example.dsa.filter;
+package com.example.dsa.auth;
 
-import com.example.dsa.service.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;

@@ -1,8 +1,6 @@
-package com.example.dsa.controller;
+package com.example.dsa.platform;
 
-import com.example.dsa.entity.PlatformAccount;
-import com.example.dsa.service.PlatformSyncService;
-import com.example.dsa.service.UserInfoService;
+import com.example.dsa.user.UserInfoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,11 +21,7 @@ public class PlatformController {
         this.userInfoService = userInfoService;
     }
 
-    /**
-     * Link or update a platform account.
-     * POST /api/platforms/link
-     * Body: { "platform": "leetcode", "username": "ashish123" }
-     */
+    /** Link or update a platform account. POST /api/platforms/link */
     @PostMapping("/link")
     public ResponseEntity<?> linkPlatform(@AuthenticationPrincipal UserDetails userDetails,
             @RequestBody Map<String, String> body) {
@@ -46,10 +40,7 @@ public class PlatformController {
                 "username", acc.getUsername()));
     }
 
-    /**
-     * Get dashboard stats for the logged-in user.
-     * GET /api/platforms/dashboard
-     */
+    /** Get dashboard stats. GET /api/platforms/dashboard */
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboard(@AuthenticationPrincipal UserDetails userDetails) {
         String userId = getUserId(userDetails.getUsername());
@@ -57,10 +48,7 @@ public class PlatformController {
         return ResponseEntity.ok(data);
     }
 
-    /**
-     * Get live calendar/heatmap data.
-     * GET /api/platforms/calendar
-     */
+    /** Get live calendar/heatmap data. GET /api/platforms/calendar */
     @GetMapping("/calendar")
     public ResponseEntity<?> getCalendar(@AuthenticationPrincipal UserDetails userDetails) {
         String userId = getUserId(userDetails.getUsername());
@@ -68,10 +56,7 @@ public class PlatformController {
         return ResponseEntity.ok(data);
     }
 
-    /**
-     * Force-sync all linked platforms.
-     * POST /api/platforms/sync
-     */
+    /** Force-sync all linked platforms. POST /api/platforms/sync */
     @PostMapping("/sync")
     public ResponseEntity<?> syncAll(@AuthenticationPrincipal UserDetails userDetails) {
         String userId = getUserId(userDetails.getUsername());
@@ -79,10 +64,6 @@ public class PlatformController {
         return ResponseEntity.ok(Map.of("synced", results));
     }
 
-    /**
-     * Converts email (which is our username for Spring Security) → DB user id.
-     * Our user_id is the DB auto-increment int stored as string.
-     */
     private String getUserId(String email) {
         return userInfoService.findIdByEmail(email);
     }

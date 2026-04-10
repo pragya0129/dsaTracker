@@ -1,6 +1,5 @@
-package com.example.dsa.controller;
+package com.example.dsa.platform;
 
-import com.example.dsa.service.CodeforcesClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 

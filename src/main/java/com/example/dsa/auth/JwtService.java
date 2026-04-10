@@ -1,4 +1,4 @@
-package com.example.dsa.service;
+package com.example.dsa.auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

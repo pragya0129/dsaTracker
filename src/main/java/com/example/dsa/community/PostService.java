@@ -1,7 +1,7 @@
 package com.example.dsa.community;
 
-import com.example.dsa.entity.UserInfo;
-import com.example.dsa.repository.UserInfoRepository;
+import com.example.dsa.user.UserInfo;
+import com.example.dsa.user.UserInfoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

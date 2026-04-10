@@ -1,7 +1,7 @@
 package com.example.dsa.recommendation;
 
 import com.example.dsa.challenge.Problem;
-import com.example.dsa.entity.TopicStats;
+import com.example.dsa.platform.TopicStats;
 import org.springframework.stereotype.Component;
 
 import java.util.*;

@@ -1,10 +1,6 @@
-package com.example.dsa.controller;
+package com.example.dsa.user;
 
-import com.example.dsa.entity.AuthRequest;
-import com.example.dsa.entity.UserInfo;
-import com.example.dsa.service.JwtService;
-import com.example.dsa.service.UserInfoService;
-
+import com.example.dsa.auth.JwtService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

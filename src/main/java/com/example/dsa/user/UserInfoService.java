@@ -1,7 +1,5 @@
-package com.example.dsa.service;
+package com.example.dsa.user;
 
-import com.example.dsa.entity.UserInfo;
-import com.example.dsa.repository.UserInfoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -35,6 +33,9 @@ public class UserInfoService implements org.springframework.security.core.userde
     public String addUser(UserInfo userInfo) {
         if (repository.findByEmail(userInfo.getEmail()).isPresent()) {
             return "Email already registered";
+        }
+        if (userInfo.getRoles() == null || userInfo.getRoles().isBlank()) {
+            userInfo.setRoles("ROLE_USER");
         }
         userInfo.setPassword(encoder.encode(userInfo.getPassword()));
         repository.save(userInfo);

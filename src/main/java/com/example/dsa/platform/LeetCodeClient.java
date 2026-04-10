@@ -1,6 +1,5 @@
-package com.example.dsa.service;
+package com.example.dsa.platform;
 
-import com.example.dsa.entity.Submission;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;

@@ -1,6 +1,6 @@
 package com.example.dsa.config;
 
-import com.example.dsa.filter.JwtAuthFilter;
+import com.example.dsa.auth.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;

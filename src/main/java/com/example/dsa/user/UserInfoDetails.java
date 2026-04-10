@@ -1,6 +1,5 @@
-package com.example.dsa.service;
+package com.example.dsa.user;
 
-import com.example.dsa.entity.UserInfo;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,10 +17,14 @@ public class UserInfoDetails implements UserDetails {
     public UserInfoDetails(UserInfo userInfo) {
         this.username = userInfo.getEmail();
         this.password = userInfo.getPassword();
-        this.authorities = List.of(userInfo.getRoles().split(","))
-                .stream()
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
+        if (userInfo.getRoles() != null && !userInfo.getRoles().isBlank()) {
+            this.authorities = List.of(userInfo.getRoles().split(","))
+                    .stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .collect(Collectors.toList());
+        } else {
+            this.authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        }
     }
 
     @Override

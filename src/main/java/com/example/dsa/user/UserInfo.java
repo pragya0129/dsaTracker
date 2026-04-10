@@ -1,4 +1,4 @@
-package com.example.dsa.entity;
+package com.example.dsa.user;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

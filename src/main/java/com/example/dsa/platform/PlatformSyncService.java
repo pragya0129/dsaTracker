@@ -1,11 +1,5 @@
-package com.example.dsa.service;
+package com.example.dsa.platform;
 
-import com.example.dsa.entity.PlatformAccount;
-import com.example.dsa.entity.TopicStats;
-import com.example.dsa.entity.UserStats;
-import com.example.dsa.repository.PlatformAccountRepository;
-import com.example.dsa.repository.TopicStatsRepository;
-import com.example.dsa.repository.UserStatsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +67,6 @@ public class PlatformSyncService {
         for (PlatformAccount acc : accounts) {
             results.add(syncPlatformStats(userId, acc.getPlatformName(), acc.getUsername()));
         }
-        // Save the last synced time
         accounts.forEach(a -> a.setLastSynced(LocalDateTime.now()));
         platformAccountRepo.saveAll(accounts);
         return results;
@@ -111,7 +104,6 @@ public class PlatformSyncService {
         List<UserStats> statsList = userStatsRepo.findByUserId(userId);
         List<TopicStats> topics = topicStatsRepo.findByUserId(userId);
 
-        // Summarise across platforms
         int totalSolved = 0, easy = 0, medium = 0, hard = 0;
         int currentStreak = 0, longestStreak = 0;
         List<Map<String, Object>> platformData = new ArrayList<>();
@@ -136,7 +128,6 @@ public class PlatformSyncService {
             plat.put("longestStreak", s.getLongestStreak());
             plat.put("updatedAt", s.getUpdatedAt());
 
-            // find username for this platform
             accounts.stream()
                     .filter(a -> a.getPlatformName().equalsIgnoreCase(s.getPlatform()))
                     .findFirst()
@@ -187,8 +178,6 @@ public class PlatformSyncService {
     private Map<String, Object> syncCodeforces(String userId, String username) {
         Map<String, Object> stats = codeforcesClient.fetchStats(username);
         Map<String, Object> info = codeforcesClient.fetchUserInfo(username);
-
-        // Merge user info into stats
         stats.putAll(info);
 
         upsertStats(userId, "codeforces", stats);
@@ -202,7 +191,6 @@ public class PlatformSyncService {
     }
 
     /* ── Shared helpers ── */
-
     private void upsertStats(String userId, String platform, Map<String, Object> stats) {
         UserStats us = userStatsRepo.findByUserIdAndPlatform(userId, platform)
                 .orElse(new UserStats());
@@ -219,7 +207,6 @@ public class PlatformSyncService {
     }
 
     private void upsertTopics(String userId, Map<String, Object> stats) {
-        // We merge topics (don't delete existing from other platform)
         @SuppressWarnings("unchecked")
         Map<String, Integer> topics = (Map<String, Integer>) stats.getOrDefault("topics", Map.of());
         for (Map.Entry<String, Integer> e : topics.entrySet()) {

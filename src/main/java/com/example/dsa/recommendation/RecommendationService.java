@@ -2,10 +2,10 @@ package com.example.dsa.recommendation;
 
 import com.example.dsa.challenge.Problem;
 import com.example.dsa.challenge.ProblemRepository;
-import com.example.dsa.entity.TopicStats;
-import com.example.dsa.entity.UserStats;
-import com.example.dsa.repository.TopicStatsRepository;
-import com.example.dsa.repository.UserStatsRepository;
+import com.example.dsa.platform.TopicStats;
+import com.example.dsa.platform.UserStats;
+import com.example.dsa.platform.TopicStatsRepository;
+import com.example.dsa.platform.UserStatsRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.*;

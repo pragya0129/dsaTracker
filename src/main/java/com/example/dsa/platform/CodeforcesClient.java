@@ -1,4 +1,4 @@
-package com.example.dsa.service;
+package com.example.dsa.platform;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,8 +11,7 @@ import java.util.*;
  * Codeforces REST API client.
  * Endpoints used:
  * - user.info?handles=USERNAME → rating, rank, maxRating, maxRank
- * - user.status?handle=USERNAME&count=N → submissions (verdict, problem tags,
- * rating)
+ * - user.status?handle=USERNAME&count=N → submissions (verdict, problem tags, rating)
  */
 @Service
 public class CodeforcesClient {
@@ -26,11 +25,7 @@ public class CodeforcesClient {
                 .build();
     }
 
-
-
-    /**
-     * Fetch user info: rating, maxRating, rank, maxRank, contribution
-     */
+    /** Fetch user info: rating, maxRating, rank, maxRank, contribution */
     public Map<String, Object> fetchUserInfo(String handle) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("rating", 0);
@@ -81,7 +76,6 @@ public class CodeforcesClient {
         result.put("calendar", new LinkedHashMap<String, Integer>());
 
         try {
-            // Fetch all submissions (no count limit = all)
             String raw = webClient.get()
                     .uri("/user.status?handle={handle}", handle)
                     .retrieve()
@@ -96,30 +90,24 @@ public class CodeforcesClient {
             if (!submissions.isArray())
                 return result;
 
-            // Track unique solved problems
             Set<String> solvedProblems = new HashSet<>();
             Map<String, Integer> topics = new LinkedHashMap<>();
             Map<String, Integer> calendar = new LinkedHashMap<>();
             int easy = 0, medium = 0, hard = 0;
 
             for (JsonNode sub : submissions) {
-                // Add to calendar history (all submissions, or all accepted? Leetcode tracks
-                // all)
                 long timeSec = sub.path("creationTimeSeconds").asLong();
                 calendar.merge(String.valueOf(timeSec), 1, Integer::sum);
 
-                // Only count accepted verdicts
                 if (!"OK".equals(sub.path("verdict").asText()))
                     continue;
 
                 JsonNode problem = sub.path("problem");
                 String problemKey = problem.path("contestId").asInt() + "-" + problem.path("index").asText();
 
-                // Skip duplicates
                 if (!solvedProblems.add(problemKey))
                     continue;
 
-                // Classify difficulty by problem rating
                 int rating = problem.path("rating").asInt(0);
                 if (rating > 0) {
                     if (rating <= 1200)
@@ -130,7 +118,6 @@ public class CodeforcesClient {
                         hard++;
                 }
 
-                // Aggregate tags/topics
                 JsonNode tags = problem.path("tags");
                 if (tags.isArray()) {
                     for (JsonNode tag : tags) {
