@@ -4,8 +4,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import OnboardingPage from './pages/OnboardingPage'
 import DashboardPage from './pages/DashboardPage'
-import ProblemsPage from './pages/ProblemsPage'
-import RecommendationsPage from './pages/RecommendationsPage'
+import PracticePage from './pages/PracticePage'
 import ProfilePage from './pages/ProfilePage'
 import ChallengePage from './pages/ChallengePage'
 import ContestPage from './pages/ContestPage'
@@ -20,8 +19,9 @@ export default function App() {
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/problems" element={<ProblemsPage />} />
-                <Route path="/recommendations" element={<RecommendationsPage />} />
+                {/* /problems and /recommendations both point to the unified Practice page */}
+                <Route path="/problems" element={<PracticePage />} />
+                <Route path="/recommendations" element={<Navigate to="/problems" replace />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/challenges" element={<ChallengePage />} />
                 <Route path="/contest/:id" element={<ContestPage />} />

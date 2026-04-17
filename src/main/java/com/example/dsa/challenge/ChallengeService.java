@@ -23,11 +23,13 @@ public class ChallengeService {
             ContestType.BEGINNER, new int[] { 2, 1, 0 }, // easy, medium, hard
             ContestType.MEDIUM,   new int[] { 1, 3, 1 },
             ContestType.HARD,     new int[] { 0, 2, 3 });
+    // CUSTOM: counts are provided at runtime via CreateChallengeRequest
 
     private static final Map<ContestType, Integer> DURATION_MINUTES = Map.of(
             ContestType.BEGINNER, 30,
             ContestType.MEDIUM,   45,
             ContestType.HARD,     60);
+    // CUSTOM duration computed dynamically: 10 min per Easy, 15 per Medium, 20 per Hard (min 15)
 
     private final ChallengeRepository challengeRepo;
     private final ChallengeProblemRepository cpRepo;
@@ -94,6 +96,17 @@ public class ChallengeService {
 
         ContestType type = ContestType.valueOf(req.getContestType().toUpperCase());
 
+        // For CUSTOM type, clamp each count to [0, 5] and ensure total > 0
+        int[] customCounts = null;
+        if (type == ContestType.CUSTOM) {
+            int e = Math.min(5, Math.max(0, req.getEasyCount()));
+            int m = Math.min(5, Math.max(0, req.getMediumCount()));
+            int h = Math.min(5, Math.max(0, req.getHardCount()));
+            if (e + m + h == 0)
+                throw new IllegalArgumentException("Custom contest must have at least one problem");
+            customCounts = new int[]{ e, m, h };
+        }
+
         Challenge c = new Challenge();
         c.setChallengerId(challengerEmail);
         c.setOpponentId(opponentEmail);
@@ -118,7 +131,7 @@ public class ChallengeService {
                 .map(String::toLowerCase)
                 .collect(Collectors.toList());
 
-        selectAndSaveProblems(saved.getId(), type, excludedSlugs, sharedWeakTopics, platformList);
+        selectAndSaveProblems(saved.getId(), type, customCounts, excludedSlugs, sharedWeakTopics, platformList);
 
         return buildResponse(saved);
     }
@@ -132,7 +145,9 @@ public class ChallengeService {
         if (c.getStatus() != ChallengeStatus.PENDING)
             throw new IllegalArgumentException("Challenge is not in PENDING state");
 
-        int duration = DURATION_MINUTES.get(c.getContestType());
+        int duration = c.getContestType() == ContestType.CUSTOM
+                ? customDuration(cpRepo.findByChallengeIdOrderByProblemOrder(challengeId))
+                : DURATION_MINUTES.get(c.getContestType());
         c.setStatus(ChallengeStatus.ACTIVE);
         c.setStartTime(LocalDateTime.now());
         c.setEndTime(LocalDateTime.now().plusMinutes(duration));
@@ -298,10 +313,12 @@ public class ChallengeService {
      *   1. Problems in a shared weak topic, not solved by either user, on common platforms
      *   2. Problems on common platforms, not solved by either user (any topic)
      *   3. Problems on common platforms (may have been solved — last resort)
+     *
+     * @param customCounts non-null for CUSTOM type: [easyCount, mediumCount, hardCount]
      */
-    private void selectAndSaveProblems(Long challengeId, ContestType type,
+    private void selectAndSaveProblems(Long challengeId, ContestType type, int[] customCounts,
             Set<String> excludedSlugs, List<String> weakTopics, List<String> platforms) {
-        int[] counts = PROBLEM_COUNTS.get(type);
+        int[] counts = (type == ContestType.CUSTOM) ? customCounts : PROBLEM_COUNTS.get(type);
         String[] diffs = { "easy", "medium", "hard" };
         int order = 1;
 
@@ -437,10 +454,14 @@ public class ChallengeService {
         r.setEndTime(c.getEndTime());
         r.setCreatedAt(c.getCreatedAt());
         r.setWinnerId(c.getWinnerId());
-        r.setDurationMinutes(DURATION_MINUTES.get(c.getContestType()));
+        List<ChallengeProblem> problems = cpRepo.findByChallengeIdOrderByProblemOrder(c.getId());
+        int durationMins = c.getContestType() == ContestType.CUSTOM
+                ? customDuration(problems)
+                : DURATION_MINUTES.get(c.getContestType());
+        r.setDurationMinutes(durationMins);
 
-        // Problems
-        r.setProblems(cpRepo.findByChallengeIdOrderByProblemOrder(c.getId()));
+        // Problems (already fetched above for duration calculation)
+        r.setProblems(problems);
 
         // Leaderboard: include per-user solved problem titles for frontend tick indicators
         long cSolved = caRepo.countByChallengeIdAndUserIdAndSolvedTrue(c.getId(), c.getChallengerId());
@@ -474,5 +495,13 @@ public class ChallengeService {
     private Challenge getOrThrow(Long id) {
         return challengeRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Challenge not found: " + id));
+    }
+
+    /** Computes contest duration for CUSTOM mode: 10 min/Easy, 15 min/Medium, 20 min/Hard, min 15. */
+    private int customDuration(List<ChallengeProblem> problems) {
+        long easy   = problems.stream().filter(p -> "easy".equalsIgnoreCase(p.getDifficulty())).count();
+        long medium = problems.stream().filter(p -> "medium".equalsIgnoreCase(p.getDifficulty())).count();
+        long hard   = problems.stream().filter(p -> "hard".equalsIgnoreCase(p.getDifficulty())).count();
+        return (int) Math.max(15, easy * 10 + medium * 15 + hard * 20);
     }
 }

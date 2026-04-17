@@ -1,76 +1,431 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
 import * as api from '../services/api'
 
-const MODES = {
-    BEGINNER: {
-        label: 'Beginner', color: '#22C55E', glow: 'rgba(34,197,94,.35)',
-        bg: 'rgba(34,197,94,.06)', border: 'rgba(34,197,94,.25)',
-        icon: '⚡', problems: '2 Easy + 1 Medium', time: '30 min',
-        desc: 'Warm up your brain. Light problems, quick timer.',
-        badge: 'Starter',
-    },
-    MEDIUM: {
-        label: 'Medium', color: '#F59E0B', glow: 'rgba(245,158,11,.35)',
-        bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)',
-        icon: '🔥', problems: '1 Easy + 3 Medium + 1 Hard', time: '45 min',
-        desc: 'A well-balanced fight. Strategy meets skill.',
-        badge: 'Balanced',
-    },
-    HARD: {
-        label: 'Hard', color: '#EF4444', glow: 'rgba(239,68,68,.35)',
-        bg: 'rgba(239,68,68,.06)', border: 'rgba(239,68,68,.25)',
-        icon: '💀', problems: '2 Medium + 3 Hard', time: '60 min',
-        desc: 'No mercy. Only the top coders survive.',
-        badge: 'Elite',
-    },
+// ─── Preset definitions (compact) ────────────────────────────────────────────
+const PRESETS = {
+    BEGINNER: { label: 'Beginner', color: '#22C55E', easy: 2, medium: 1, hard: 0, mins: 30 },
+    MEDIUM:   { label: 'Balanced', color: '#F59E0B', easy: 1, medium: 3, hard: 1, mins: 45 },
+    HARD:     { label: 'Hard',     color: '#EF4444', easy: 0, medium: 2, hard: 3, mins: 60 },
+    CUSTOM:   { label: 'Custom',   color: '#A78BFA', easy: 0, medium: 0, hard: 0, mins: 0  },
+}
+
+function calcMins(e, m, h) { return Math.max(10, e * 10 + m * 15 + h * 20) }
+
+function problemsLabel(preset, custom) {
+    const { easy: e, medium: m, hard: h } = preset === 'CUSTOM' ? custom : PRESETS[preset]
+    const parts = []
+    if (e > 0) parts.push(`${e}E`)
+    if (m > 0) parts.push(`${m}M`)
+    if (h > 0) parts.push(`${h}H`)
+    return parts.length ? parts.join(' + ') : '—'
+}
+
+function durationLabel(preset, custom) {
+    if (preset !== 'CUSTOM') return `${PRESETS[preset].mins} min`
+    const { easy: e, medium: m, hard: h } = custom
+    return `~${calcMins(e, m, h)} min`
+}
+
+// ─── Tiny helpers ─────────────────────────────────────────────────────────────
+function timeAgo(iso) {
+    if (!iso) return ''
+    const s = (Date.now() - new Date(iso)) / 1000
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+    return `${Math.floor(s / 86400)}d ago`
 }
 
 const STATUS_META = {
-    PENDING:   { color: '#F59E0B', bg: 'rgba(245,158,11,.12)',  label: 'Pending',  dot: '⏳' },
-    ACTIVE:    { color: '#22C55E', bg: 'rgba(34,197,94,.12)',   label: 'Live',     dot: '🟢' },
-    COMPLETED: { color: '#6366F1', bg: 'rgba(99,102,241,.12)',  label: 'Done',     dot: '✅' },
-    EXPIRED:   { color: '#64748B', bg: 'rgba(100,116,139,.12)', label: 'Expired',  dot: '💤' },
-    DECLINED:  { color: '#EF4444', bg: 'rgba(239,68,68,.12)',   label: 'Declined', dot: '❌' },
+    PENDING:   { color: '#F59E0B', label: 'Pending',  dot: '⏳' },
+    ACTIVE:    { color: '#22C55E', label: 'Live',     dot: '🟢' },
+    COMPLETED: { color: '#6366F1', label: 'Done',     dot: '✅' },
+    EXPIRED:   { color: '#64748B', label: 'Expired',  dot: '💤' },
+    DECLINED:  { color: '#EF4444', label: 'Declined', dot: '❌' },
 }
 
-function StatusPill({ status }) {
-    const m = STATUS_META[status] || { color: '#94A3B8', bg: 'rgba(148,163,184,.1)', label: status, dot: '•' }
+// ─── Compact preset picker (shared between Duel and Contest) ──────────────────
+function PresetPicker({ value, onChange }) {
     return (
-        <span style={{
-            fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-            background: m.bg, color: m.color, border: `1px solid ${m.color}40`,
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-        }}>
-            {m.dot} {m.label}
-        </span>
-    )
-}
-
-function Avatar({ name, size = 36, color = '#6366F1' }) {
-    return (
-        <div style={{
-            width: size, height: size, borderRadius: '50%', flexShrink: 0,
-            background: `linear-gradient(135deg, ${color}, ${color}99)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: size * 0.38, fontWeight: 800, color: '#fff',
-            boxShadow: `0 0 0 2px rgba(0,0,0,.4), 0 0 12px ${color}40`,
-        }}>
-            {(name || '?')[0].toUpperCase()}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Object.entries(PRESETS).map(([k, v]) => {
+                const sel = value === k
+                return (
+                    <button key={k} type="button" onClick={() => onChange(k)} style={{
+                        padding: '7px 16px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
+                        cursor: 'pointer', border: `1.5px solid ${sel ? v.color : 'rgba(255,255,255,.1)'}`,
+                        background: sel ? `${v.color}18` : 'rgba(255,255,255,.03)',
+                        color: sel ? v.color : '#64748B', transition: 'all .18s',
+                    }}>
+                        {v.label}
+                        {k !== 'CUSTOM' && <span style={{ fontWeight: 400, fontSize: 10.5, marginLeft: 6, opacity: .75 }}>
+                            {v.easy > 0 ? `${v.easy}E ` : ''}{v.medium > 0 ? `${v.medium}M ` : ''}{v.hard > 0 ? `${v.hard}H` : ''}
+                        </span>}
+                    </button>
+                )
+            })}
         </div>
     )
 }
 
+// ─── Custom question count inputs ──────────────────────────────────────────────
+function CustomInputs({ value, onChange }) {
+    const fields = [
+        { key: 'easy',   label: 'Easy',   color: '#22C55E' },
+        { key: 'medium', label: 'Medium', color: '#F59E0B' },
+        { key: 'hard',   label: 'Hard',   color: '#EF4444' },
+    ]
+    return (
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 14 }}>
+            {fields.map(({ key, label, color }) => (
+                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 10.5, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</label>
+                    <input
+                        type="number" min={0} max={10}
+                        value={value[key]}
+                        onChange={e => onChange({ ...value, [key]: Math.min(10, Math.max(0, Number(e.target.value) || 0)) })}
+                        style={{ width: 58, padding: '8px 10px', borderRadius: 9, border: `1.5px solid ${color}40`, background: `${color}0a`, color, fontSize: 16, fontWeight: 800, textAlign: 'center', outline: 'none' }}
+                    />
+                </div>
+            ))}
+            <div style={{ fontSize: 11, color: '#475569', paddingBottom: 10 }}>
+                {calcMins(value.easy, value.medium, value.hard)} min est.
+            </div>
+        </div>
+    )
+}
+
+// ─── Section label ────────────────────────────────────────────────────────────
+function SectionLabel({ n, children }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(99,102,241,.2)', border: '1px solid rgba(99,102,241,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#818CF8', flexShrink: 0 }}>{n}</div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.07em' }}>{children}</span>
+        </div>
+    )
+}
+
+// ─── Back button ──────────────────────────────────────────────────────────────
+function BackBtn({ onBack }) {
+    return (
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.09)', color: '#64748B', padding: '7px 14px', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', marginBottom: 28 }}>
+            ← Back
+        </button>
+    )
+}
+
+// ─── Duel setup ───────────────────────────────────────────────────────────────
+function DuelSetup({ onBack, onSuccess, myEmail }) {
+    const navigate = useNavigate()
+    const [opponent, setOpponent] = useState('')
+    const [preset, setPreset] = useState('BEGINNER')
+    const [custom, setCustom] = useState({ easy: 1, medium: 2, hard: 1 })
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState(null)
+
+    async function handleSubmit(e) {
+        e.preventDefault()
+        if (!opponent.trim()) { setError('Enter your opponent\'s email'); return }
+        if (preset === 'CUSTOM' && custom.easy + custom.medium + custom.hard === 0) {
+            setError('Add at least one problem'); return
+        }
+        setLoading(true); setError('')
+        const counts = preset === 'CUSTOM' ? { easyCount: custom.easy, mediumCount: custom.medium, hardCount: custom.hard } : {}
+        const r = await api.createChallenge(opponent.trim(), preset, counts)
+        setLoading(false)
+        if (r.success) { setSuccess(r.data) }
+        else { setError(r.error) }
+    }
+
+    if (success) {
+        return (
+            <div style={{ maxWidth: 540 }}>
+                <BackBtn onBack={() => { setSuccess(null); onBack() }} />
+                <div style={{ background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.2)', borderRadius: 18, padding: '32px 36px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 44, marginBottom: 14 }}>⚔️</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#22C55E', marginBottom: 8 }}>Challenge Sent!</div>
+                    <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 22, lineHeight: 1.6 }}>
+                        Duel <strong style={{ color: '#F1F5F9' }}>#{success.id}</strong> sent to <strong style={{ color: '#F1F5F9' }}>{success.opponentName || success.opponentId}</strong>.<br />Waiting for them to accept.
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button onClick={() => navigate(`/contest/${success.id}`)} style={{ background: 'rgba(99,102,241,.15)', border: '1px solid rgba(99,102,241,.3)', color: '#818CF8', padding: '9px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>View Duel →</button>
+                        <button onClick={() => { setSuccess(null); onBack() }} style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', color: '#64748B', padding: '9px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Back to Challenges</button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div style={{ maxWidth: 560 }}>
+            <BackBtn onBack={onBack} />
+            <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4 }}>⚔️ Get Ready for Duel</div>
+                <div style={{ fontSize: 13, color: '#64748B' }}>Pick your opponent, set your challenge, start the fight.</div>
+            </div>
+
+            {error && (
+                <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#EF4444', padding: '10px 14px', borderRadius: 11, fontSize: 13, marginBottom: 20 }}>{error}</div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+                {/* Step 1 — opponent */}
+                <div>
+                    <SectionLabel n={1}>Who are you challenging?</SectionLabel>
+                    <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none' }}>✉️</span>
+                        <input
+                            type="email" required value={opponent}
+                            onChange={e => setOpponent(e.target.value)}
+                            placeholder="opponent@email.com"
+                            style={{ width: '100%', padding: '12px 14px 12px 44px', borderRadius: 12, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.1)', color: '#F1F5F9', fontSize: 14, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }}
+                            onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.5)'}
+                            onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.1)'}
+                        />
+                    </div>
+                </div>
+
+                {/* Step 2 — format */}
+                <div>
+                    <SectionLabel n={2}>Choose your format</SectionLabel>
+                    <PresetPicker value={preset} onChange={setPreset} />
+                    {preset === 'CUSTOM' && <CustomInputs value={custom} onChange={setCustom} />}
+                    {preset !== 'CUSTOM' && (
+                        <div style={{ marginTop: 10, fontSize: 11.5, color: '#475569' }}>
+                            {problemsLabel(preset, custom)} · {durationLabel(preset, custom)}
+                        </div>
+                    )}
+                </div>
+
+                {/* Submit */}
+                <button type="submit" disabled={loading} style={{ background: loading ? 'rgba(99,102,241,.35)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '13px 28px', borderRadius: 12, fontWeight: 800, fontSize: 14.5, cursor: loading ? 'not-allowed' : 'pointer', boxShadow: loading ? 'none' : '0 6px 22px rgba(99,102,241,.45)', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {loading ? <><Spin /> Sending…</> : '⚔️ Send Duel Invite'}
+                </button>
+            </form>
+        </div>
+    )
+}
+
+// ─── Contest setup ────────────────────────────────────────────────────────────
+function ContestSetup({ onBack }) {
+    const [name, setName] = useState('')
+    const [emails, setEmails] = useState([''])
+    const [maxPeople, setMaxPeople] = useState(8)
+    const [preset, setPreset] = useState('MEDIUM')
+    const [custom, setCustom] = useState({ easy: 2, medium: 3, hard: 2 })
+    const [inviteLink, setInviteLink] = useState('')
+    const [copied, setCopied] = useState(false)
+
+    function addEmail() { setEmails(prev => [...prev, '']) }
+    function removeEmail(i) { setEmails(prev => prev.filter((_, idx) => idx !== i)) }
+    function updateEmail(i, v) { setEmails(prev => prev.map((e, idx) => idx === i ? v : e)) }
+
+    function generateLink() {
+        const token = Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+        const link = `${window.location.origin}/contest/join/${token}`
+        setInviteLink(link)
+    }
+
+    function copyLink() {
+        navigator.clipboard.writeText(inviteLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+    }
+
+    function handleCreate(e) {
+        e.preventDefault()
+        generateLink()
+    }
+
+    return (
+        <div style={{ maxWidth: 600 }}>
+            <BackBtn onBack={onBack} />
+            <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4 }}>🏆 Organize a Contest</div>
+                <div style={{ fontSize: 13, color: '#64748B' }}>Set up a group coding contest, invite participants via link.</div>
+            </div>
+
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+                {/* Step 1 — name */}
+                <div>
+                    <SectionLabel n={1}>Contest name</SectionLabel>
+                    <input
+                        value={name} onChange={e => setName(e.target.value)}
+                        placeholder="e.g. Friday Night Grind, Team Qualifier…"
+                        style={{ width: '100%', padding: '11px 14px', borderRadius: 11, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.1)', color: '#F1F5F9', fontSize: 13.5, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }}
+                        onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.5)'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.1)'}
+                    />
+                </div>
+
+                {/* Step 2 — participants */}
+                <div>
+                    <SectionLabel n={2}>Invite participants</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                        {emails.map((em, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <input
+                                    type="email" value={em}
+                                    onChange={e => updateEmail(i, e.target.value)}
+                                    placeholder={`Participant ${i + 1} email`}
+                                    style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.08)', color: '#F1F5F9', fontSize: 13, outline: 'none', transition: 'border-color .2s' }}
+                                    onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.4)'}
+                                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.08)'}
+                                />
+                                {emails.length > 1 && (
+                                    <button type="button" onClick={() => removeEmail(i)} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#EF4444', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
+                                )}
+                            </div>
+                        ))}
+                        <button type="button" onClick={addEmail} style={{ alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 9, background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', color: '#818CF8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                            + Add participant
+                        </button>
+                    </div>
+
+                    {/* Max participants */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', background: 'rgba(255,255,255,.03)', borderRadius: 11, border: '1px solid rgba(255,255,255,.07)' }}>
+                        <span style={{ fontSize: 12.5, color: '#94A3B8', fontWeight: 600 }}>Max participants</span>
+                        <input
+                            type="number" min={2} max={50} value={maxPeople}
+                            onChange={e => setMaxPeople(Math.min(50, Math.max(2, Number(e.target.value) || 2)))}
+                            style={{ width: 64, padding: '6px 10px', borderRadius: 8, border: '1.5px solid rgba(99,102,241,.3)', background: 'rgba(99,102,241,.08)', color: '#818CF8', fontSize: 15, fontWeight: 800, textAlign: 'center', outline: 'none' }}
+                        />
+                        <span style={{ fontSize: 11, color: '#475569' }}>people can join via link</span>
+                    </div>
+                </div>
+
+                {/* Step 3 — format */}
+                <div>
+                    <SectionLabel n={3}>Set the question format</SectionLabel>
+                    <PresetPicker value={preset} onChange={setPreset} />
+                    {preset === 'CUSTOM' && <CustomInputs value={custom} onChange={setCustom} />}
+                    {preset !== 'CUSTOM' && (
+                        <div style={{ marginTop: 10, fontSize: 11.5, color: '#475569' }}>
+                            {problemsLabel(preset, custom)} · {durationLabel(preset, custom)}
+                        </div>
+                    )}
+                </div>
+
+                {/* Invite link display */}
+                {inviteLink && (
+                    <div style={{ background: 'rgba(99,102,241,.06)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 14, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#818CF8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>🔗 Invite Link</div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div style={{ flex: 1, padding: '9px 14px', borderRadius: 9, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', fontSize: 12, color: '#94A3B8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {inviteLink}
+                            </div>
+                            <button type="button" onClick={copyLink} style={{ padding: '9px 16px', borderRadius: 9, background: copied ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', border: `1px solid ${copied ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.3)'}`, color: copied ? '#22C55E' : '#818CF8', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                {copied ? '✓ Copied' : 'Copy'}
+                            </button>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#475569', marginTop: 8 }}>Share this link with anyone — up to {maxPeople} people can join.</div>
+                    </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button type="button" onClick={generateLink} style={{ padding: '11px 22px', borderRadius: 11, background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.25)', color: '#818CF8', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                        🔗 {inviteLink ? 'Regenerate Link' : 'Generate Invite Link'}
+                    </button>
+                    <button type="submit" style={{ padding: '11px 26px', borderRadius: 11, background: 'linear-gradient(135deg,#F59E0B,#EF4444)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 6px 20px rgba(245,158,11,.35)' }}>
+                        🏆 Create Contest
+                    </button>
+                </div>
+            </form>
+        </div>
+    )
+}
+
+// ─── Challenge row (compact) ──────────────────────────────────────────────────
+function ChallengeRow({ c, myEmail, onNavigate }) {
+    const sm = STATUS_META[c.status] || { color: '#94A3B8', label: c.status, dot: '•' }
+    const preset = PRESETS[c.contestType] || PRESETS.MEDIUM
+    const isChallenger = c.challengerId === myEmail
+    const opponent = isChallenger ? (c.opponentName || c.opponentId) : (c.challengerName || c.challengerId)
+    const iWon = c.winnerId === myEmail
+    const isActive = c.status === 'ACTIVE'
+
+    return (
+        <div onClick={() => onNavigate(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', borderRadius: 13, background: 'rgba(255,255,255,.025)', border: `1px solid ${isActive ? 'rgba(34,197,94,.18)' : 'rgba(255,255,255,.06)'}`, cursor: 'pointer', transition: 'all .18s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.04)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.025)'; e.currentTarget.style.transform = 'translateY(0)' }}>
+
+            {/* Type icon */}
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${preset.color}12`, border: `1px solid ${preset.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                {c.contestType === 'BEGINNER' ? '⚡' : c.contestType === 'HARD' ? '💀' : c.contestType === 'CUSTOM' ? '🎨' : '🔥'}
+            </div>
+
+            {/* Info */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#E2E8F0' }}>vs {opponent}</span>
+                    <span style={{ fontSize: 9, padding: '2px 8px', borderRadius: 20, background: `${sm.color}15`, color: sm.color, fontWeight: 700 }}>{sm.dot} {sm.label}</span>
+                    {!isChallenger && <span style={{ fontSize: 9, color: '#475569', background: 'rgba(255,255,255,.05)', padding: '2px 7px', borderRadius: 20 }}>Invited</span>}
+                </div>
+                <div style={{ fontSize: 11, color: '#475569' }}>#{c.id} · {preset.label} · {timeAgo(c.createdAt)}</div>
+            </div>
+
+            {/* Result / action */}
+            <div style={{ flexShrink: 0 }}>
+                {c.winnerId ? (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: iWon ? '#22C55E' : '#EF4444' }}>{iWon ? '🏆 Won' : '😔 Lost'}</span>
+                ) : isActive ? (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#22C55E' }}>▶ Join</span>
+                ) : (
+                    <span style={{ fontSize: 11, color: '#475569' }}>View →</span>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ─── Invitation card (compact) ────────────────────────────────────────────────
+function InvitationRow({ c, onAccept, onDecline, actionLoading }) {
+    const preset = PRESETS[c.contestType] || PRESETS.MEDIUM
+    const acc = actionLoading === c.id + '-accept'
+    const dec = actionLoading === c.id + '-decline'
+    return (
+        <div style={{ padding: '16px 20px', borderRadius: 14, background: `${preset.color}06`, border: `1px solid ${preset.color}20` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 3 }}>
+                        <span style={{ color: preset.color }}>{c.challengerName || c.challengerId}</span>
+                        <span style={{ color: '#64748B', fontWeight: 400 }}> challenged you to a </span>
+                        <span style={{ color: '#E2E8F0' }}>{preset.label} Duel</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#475569' }}>
+                        {PRESETS[c.contestType]?.easy > 0 ? `${PRESETS[c.contestType].easy}E ` : ''}
+                        {PRESETS[c.contestType]?.medium > 0 ? `${PRESETS[c.contestType].medium}M ` : ''}
+                        {PRESETS[c.contestType]?.hard > 0 ? `${PRESETS[c.contestType].hard}H` : ''}
+                        {c.contestType === 'CUSTOM' ? 'Custom mix' : ''}
+                        {' · '}{timeAgo(c.createdAt)}
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => onDecline(c.id)} disabled={dec || acc} style={{ padding: '8px 16px', borderRadius: 9, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (dec || acc) ? .5 : 1 }}>
+                        {dec ? '…' : 'Decline'}
+                    </button>
+                    <button onClick={() => onAccept(c.id)} disabled={acc || dec} style={{ padding: '8px 20px', borderRadius: 9, background: `linear-gradient(135deg,${preset.color},${preset.color}cc)`, color: '#fff', border: 'none', fontSize: 12, fontWeight: 800, cursor: 'pointer', opacity: (acc || dec) ? .7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {acc ? <><Spin /> Starting…</> : '⚔️ Accept'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function Spin() {
+    return <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function ChallengePage() {
     const navigate = useNavigate()
-    const [tab, setTab] = useState('create')
-    const [mode, setMode] = useState('BEGINNER')
-    const [opponentEmail, setOpponentEmail] = useState('')
-    const [creating, setCreating] = useState(false)
-    const [createError, setCreateError] = useState('')
-    const [createSuccess, setCreateSuccess] = useState(null)
+    const [view, setView] = useState('home')     // 'home' | 'duel' | 'contest'
+    const [histTab, setHistTab] = useState('mine') // 'mine' | 'invitations'
     const [myChallenges, setMyChallenges] = useState([])
     const [invitations, setInvitations] = useState([])
     const [loading, setLoading] = useState(false)
@@ -80,41 +435,24 @@ export default function ChallengePage() {
 
     useEffect(() => {
         if (!api.isAuthenticated()) { navigate('/login'); return }
-        loadData()
-    }, [tab])
-
-    useEffect(() => {
-        if (!api.isAuthenticated()) return
-        api.fetchMyChallenges().then(r => { if (r.success) computeStats(r.data) })
+        loadAll()
     }, [])
 
-    function computeStats(challenges) {
-        const wins = challenges.filter(c => c.winnerId === myEmail).length
-        const losses = challenges.filter(c => c.winnerId && c.winnerId !== myEmail && c.status === 'COMPLETED').length
-        const pending = challenges.filter(c => c.status === 'PENDING' || c.status === 'ACTIVE').length
-        setStats({ wins, losses, pending, total: challenges.length })
-    }
-
-    async function loadData() {
+    async function loadAll() {
         setLoading(true)
-        if (tab === 'mine') {
-            const r = await api.fetchMyChallenges()
-            if (r.success) { setMyChallenges(r.data); computeStats(r.data) }
-        } else if (tab === 'invitations') {
-            const r = await api.fetchInvitations()
-            if (r.success) setInvitations(r.data)
-        }
+        const [mc, inv] = await Promise.all([api.fetchMyChallenges(), api.fetchInvitations()])
+        if (mc.success) { setMyChallenges(mc.data); computeStats(mc.data) }
+        if (inv.success) setInvitations(inv.data)
         setLoading(false)
     }
 
-    async function handleCreate(e) {
-        e.preventDefault()
-        if (!opponentEmail.trim()) return
-        setCreating(true); setCreateError(''); setCreateSuccess(null)
-        const r = await api.createChallenge(opponentEmail.trim(), mode)
-        if (r.success) { setCreateSuccess(r.data); setOpponentEmail('') }
-        else setCreateError(r.error)
-        setCreating(false)
+    function computeStats(list) {
+        setStats({
+            wins:    list.filter(c => c.winnerId === myEmail).length,
+            losses:  list.filter(c => c.winnerId && c.winnerId !== myEmail && c.status === 'COMPLETED').length,
+            pending: list.filter(c => c.status === 'PENDING' || c.status === 'ACTIVE').length,
+            total:   list.length,
+        })
     }
 
     async function handleAccept(id) {
@@ -127,320 +465,141 @@ export default function ChallengePage() {
     async function handleDecline(id) {
         setActionLoading(id + '-decline')
         await api.declineChallenge(id)
-        await loadData()
+        await loadAll()
         setActionLoading(null)
     }
 
-    const pendingInvites = invitations.length
+    const pendingCount = invitations.length
 
+    // ── Duel / Contest views ──
+    if (view === 'duel') {
+        return (
+            <Shell title="1v1 Duel" subtitle="Challenge a friend to a coding duel">
+                <DuelSetup onBack={() => setView('home')} myEmail={myEmail} />
+            </Shell>
+        )
+    }
+    if (view === 'contest') {
+        return (
+            <Shell title="Organize Contest" subtitle="Set up a group coding contest">
+                <ContestSetup onBack={() => setView('home')} />
+            </Shell>
+        )
+    }
+
+    // ── Home view ──
     return (
-        <div className="app-shell" style={{ background: 'linear-gradient(135deg,#060818 0%,#0b1029 50%,#06091a 100%)' }}>
-            <div style={{ position: 'fixed', top: -200, right: -100, width: 600, height: 600, background: 'radial-gradient(circle,rgba(99,102,241,.08) 0%,transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
-            <div style={{ position: 'fixed', bottom: -200, left: 200, width: 500, height: 500, background: 'radial-gradient(circle,rgba(139,92,246,.06) 0%,transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+        <Shell title="Challenges" subtitle="Compete, improve, dominate">
+
+            {/* ── Stats strip ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 28 }}>
+                {[
+                    { label: 'Wins',   value: stats.wins,    color: '#22C55E', icon: '🏆' },
+                    { label: 'Losses', value: stats.losses,  color: '#EF4444', icon: '😔' },
+                    { label: 'Active', value: stats.pending, color: '#F59E0B', icon: '⚔️' },
+                    { label: 'Total',  value: stats.total,   color: '#6366F1', icon: '📊' },
+                ].map(s => (
+                    <div key={s.label} style={{ background: `${s.color}08`, border: `1px solid ${s.color}20`, borderRadius: 13, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 9, background: `${s.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{s.icon}</div>
+                        <div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                            <div style={{ fontSize: 9.5, color: '#64748B', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{s.label}</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* ── Action cards ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 32 }}>
+
+                {/* Duel card */}
+                <div onClick={() => setView('duel')} style={{ borderRadius: 18, padding: '28px 28px', background: 'linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.08))', border: '1px solid rgba(99,102,241,.25)', cursor: 'pointer', transition: 'all .2s', position: 'relative', overflow: 'hidden' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(99,102,241,.2)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'radial-gradient(circle,rgba(99,102,241,.15),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+                    <div style={{ fontSize: 36, marginBottom: 14 }}>⚔️</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6, color: '#E2E8F0' }}>1v1 Duel</div>
+                    <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.6, marginBottom: 18 }}>Challenge a friend head-to-head. Choose your format, pick your problems, fight.</div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
+                        Get Ready for Duel →
+                    </div>
+                </div>
+
+                {/* Contest card */}
+                <div onClick={() => setView('contest')} style={{ borderRadius: 18, padding: '28px 28px', background: 'linear-gradient(135deg,rgba(245,158,11,.1),rgba(239,68,68,.07))', border: '1px solid rgba(245,158,11,.2)', cursor: 'pointer', transition: 'all .2s', position: 'relative', overflow: 'hidden' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(245,158,11,.15)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'radial-gradient(circle,rgba(245,158,11,.12),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+                    <div style={{ fontSize: 36, marginBottom: 14 }}>🏆</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6, color: '#E2E8F0' }}>Group Contest</div>
+                    <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.6, marginBottom: 18 }}>Organize a coding contest for your team. Set questions, cap participants, share an invite link.</div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#F59E0B,#EF4444)', color: '#fff', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
+                        Organize Contest →
+                    </div>
+                </div>
+            </div>
+
+            {/* ── History tabs ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,.03)', padding: 3, borderRadius: 10, border: '1px solid rgba(255,255,255,.06)' }}>
+                    {[
+                        ['mine', '📋 My Challenges'],
+                        ['invitations', `📬 Invitations${pendingCount > 0 ? ` (${pendingCount})` : ''}`],
+                    ].map(([k, l]) => (
+                        <button key={k} onClick={() => setHistTab(k)} style={{ padding: '6px 16px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: 'none', transition: 'all .18s', background: histTab === k ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'transparent', color: histTab === k ? '#fff' : '#64748B', boxShadow: histTab === k ? '0 3px 10px rgba(99,102,241,.35)' : 'none' }}>
+                            {l}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── My Challenges ── */}
+            {histTab === 'mine' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {loading && <div style={{ textAlign: 'center', padding: 40, color: '#475569', fontSize: 13 }}>Loading…</div>}
+                    {!loading && myChallenges.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#475569' }}>
+                            <div style={{ fontSize: 40, marginBottom: 12 }}>⚔️</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#94A3B8', marginBottom: 6 }}>No challenges yet</div>
+                            <div style={{ fontSize: 12 }}>Start a duel to see your history here.</div>
+                        </div>
+                    )}
+                    {myChallenges.map(c => (
+                        <ChallengeRow key={c.id} c={c} myEmail={myEmail} onNavigate={id => navigate(`/contest/${id}`)} />
+                    ))}
+                </div>
+            )}
+
+            {/* ── Invitations ── */}
+            {histTab === 'invitations' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {loading && <div style={{ textAlign: 'center', padding: 40, color: '#475569', fontSize: 13 }}>Loading…</div>}
+                    {!loading && invitations.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#475569' }}>
+                            <div style={{ fontSize: 40, marginBottom: 12 }}>📬</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#94A3B8', marginBottom: 6 }}>No pending invitations</div>
+                            <div style={{ fontSize: 12 }}>When someone challenges you, it'll show here.</div>
+                        </div>
+                    )}
+                    {invitations.map(c => (
+                        <InvitationRow key={c.id} c={c} onAccept={handleAccept} onDecline={handleDecline} actionLoading={actionLoading} />
+                    ))}
+                </div>
+            )}
+
+        </Shell>
+    )
+}
+
+// ─── Shell wrapper (keeps sidebar + topbar consistent across views) ────────────
+function Shell({ title, subtitle, children }) {
+    return (
+        <div className="app-shell" style={{ background: 'linear-gradient(135deg,#060818,#0b1029 50%,#06091a)' }}>
+            <div style={{ position: 'fixed', top: -200, right: -100, width: 600, height: 600, background: 'radial-gradient(circle,rgba(99,102,241,.07),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
             <Sidebar />
             <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
-                <Topbar title="Challenges" subtitle="1v1 coding duels" />
-                <main className="page-content">
-
-                    {/* ── STAT STRIP ── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
-                        {[
-                            { label: 'Wins', value: stats.wins, color: '#22C55E', icon: '🏆' },
-                            { label: 'Losses', value: stats.losses, color: '#EF4444', icon: '😔' },
-                            { label: 'Active', value: stats.pending, color: '#F59E0B', icon: '⚔️' },
-                            { label: 'Total', value: stats.total, color: '#6366F1', icon: '📊' },
-                        ].map(s => (
-                            <div key={s.label} style={{
-                                background: `${s.color}08`, border: `1px solid ${s.color}20`,
-                                borderRadius: 14, padding: '14px 18px',
-                                display: 'flex', alignItems: 'center', gap: 14,
-                                backdropFilter: 'blur(20px)',
-                            }}>
-                                <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.color}15`, border: `1px solid ${s.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{s.icon}</div>
-                                <div>
-                                    <div style={{ fontSize: 22, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                                    <div style={{ fontSize: 10, color: '#64748B', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* ── TAB BAR ── */}
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 22, background: 'rgba(255,255,255,.03)', padding: 5, borderRadius: 14, border: '1px solid rgba(255,255,255,.06)', width: 'fit-content' }}>
-                        {[
-                            { k: 'create', label: '⚔️ New Challenge' },
-                            { k: 'mine', label: '📋 My Challenges' },
-                            { k: 'invitations', label: `📬 Invitations${pendingInvites > 0 ? ` (${pendingInvites})` : ''}` },
-                        ].map(({ k, label }) => (
-                            <button key={k} onClick={() => setTab(k)} style={{
-                                padding: '8px 20px', borderRadius: 10, fontWeight: 700, fontSize: 12.5,
-                                cursor: 'pointer', border: 'none', transition: 'all .2s',
-                                background: tab === k ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'transparent',
-                                color: tab === k ? '#fff' : '#64748B',
-                                boxShadow: tab === k ? '0 4px 14px rgba(99,102,241,.4)' : 'none',
-                            }}>{label}</button>
-                        ))}
-                    </div>
-
-                    {/* ══ CREATE TAB ══ */}
-                    {tab === 'create' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '480px 1fr', gap: 20, alignItems: 'start' }}>
-                            {/* Left: Form */}
-                            <div style={{ background: 'rgba(255,255,255,.026)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 20, padding: 28, display: 'flex', flexDirection: 'column', gap: 22 }}>
-                                <div>
-                                    <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Challenge Someone</div>
-                                    <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.6 }}>Pick a mode, enter your opponent's email, and fire away. They'll get an invitation instantly.</div>
-                                </div>
-
-                                {createError && (
-                                    <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <span style={{ fontSize: 16 }}>⚠️</span>
-                                        <span style={{ fontSize: 12.5, color: '#EF4444' }}>{createError}</span>
-                                    </div>
-                                )}
-
-                                {createSuccess && (
-                                    <div style={{ background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.25)', borderRadius: 14, padding: '16px 18px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                            <span style={{ fontSize: 20 }}>✅</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: '#22C55E' }}>Challenge Sent!</span>
-                                        </div>
-                                        <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12 }}>
-                                            Challenge <strong style={{ color: '#F1F5F9' }}>#{createSuccess.id}</strong> sent to <strong style={{ color: '#F1F5F9' }}>{createSuccess.opponentName}</strong>. Waiting for them to accept.
-                                        </div>
-                                        <button onClick={() => navigate(`/contest/${createSuccess.id}`)} style={{ background: 'rgba(99,102,241,.2)', border: '1px solid rgba(99,102,241,.4)', color: '#818CF8', padding: '7px 16px', borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-                                            View Challenge →
-                                        </button>
-                                    </div>
-                                )}
-
-                                <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                                    <div>
-                                        <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Opponent's Email</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none' }}>✉️</span>
-                                            <input
-                                                value={opponentEmail}
-                                                onChange={e => setOpponentEmail(e.target.value)}
-                                                placeholder="friend@example.com"
-                                                type="email" required
-                                                style={{ width: '100%', padding: '12px 14px 12px 42px', borderRadius: 12, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', color: '#F1F5F9', fontSize: 13.5, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }}
-                                                onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.6)'}
-                                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.1)'}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contest Mode</label>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {Object.entries(MODES).map(([k, v]) => {
-                                                const sel = mode === k
-                                                return (
-                                                    <div key={k} onClick={() => setMode(k)} style={{
-                                                        borderRadius: 13, padding: '14px 16px', cursor: 'pointer',
-                                                        border: `1px solid ${sel ? v.border : 'rgba(255,255,255,.06)'}`,
-                                                        background: sel ? v.bg : 'rgba(255,255,255,.02)',
-                                                        transition: 'all .2s',
-                                                        boxShadow: sel ? `0 0 20px ${v.glow}` : 'none',
-                                                        display: 'flex', alignItems: 'center', gap: 14,
-                                                    }}>
-                                                        <div style={{ width: 38, height: 38, borderRadius: 9, background: sel ? `${v.color}20` : 'rgba(255,255,255,.04)', border: `1px solid ${sel ? v.border : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, transition: 'all .2s' }}>
-                                                            {v.icon}
-                                                        </div>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                                                                <span style={{ fontSize: 13.5, fontWeight: 700, color: sel ? v.color : '#F1F5F9' }}>{v.label}</span>
-                                                                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: `${v.color}15`, color: v.color, border: `1px solid ${v.color}30` }}>{v.badge}</span>
-                                                            </div>
-                                                            <div style={{ fontSize: 11, color: '#64748B' }}>{v.problems} · {v.time}</div>
-                                                        </div>
-                                                        <div style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${sel ? v.color : 'rgba(255,255,255,.15)'}`, background: sel ? v.color : 'transparent', transition: 'all .2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            {sel && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    <button type="submit" disabled={creating} style={{
-                                        background: creating ? 'rgba(99,102,241,.3)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
-                                        color: '#fff', border: 'none', padding: '14px', borderRadius: 13,
-                                        fontWeight: 800, fontSize: 14, cursor: creating ? 'not-allowed' : 'pointer',
-                                        boxShadow: creating ? 'none' : '0 6px 20px rgba(99,102,241,.5)',
-                                        transition: 'all .25s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                    }}>
-                                        {creating ? (
-                                            <>
-                                                <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />
-                                                Sending…
-                                            </>
-                                        ) : '⚔️ Send Challenge'}
-                                    </button>
-                                </form>
-                            </div>
-
-                            {/* Right: Mode cards + How it works */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                {Object.entries(MODES).map(([k, v]) => (
-                                    <div key={k} onClick={() => setMode(k)} style={{
-                                        background: v.bg, border: `1px solid ${v.border}`,
-                                        borderRadius: 16, padding: '18px 20px', cursor: 'pointer',
-                                        transition: 'all .2s', backdropFilter: 'blur(16px)',
-                                        boxShadow: mode === k ? `0 0 30px ${v.glow}` : 'none',
-                                        transform: mode === k ? 'scale(1.01)' : 'scale(1)',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-                                            <div style={{ width: 44, height: 44, borderRadius: 11, background: `${v.color}15`, border: `1px solid ${v.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{v.icon}</div>
-                                            <div>
-                                                <div style={{ fontSize: 15, fontWeight: 800, color: v.color }}>{v.label} Mode</div>
-                                                <div style={{ fontSize: 11, color: '#64748B' }}>{v.time} · {v.badge}</div>
-                                            </div>
-                                        </div>
-                                        <div style={{ fontSize: 12.5, color: '#94A3B8', lineHeight: 1.6, marginBottom: 10 }}>{v.desc}</div>
-                                        <div style={{ padding: '8px 14px', background: 'rgba(0,0,0,.2)', borderRadius: 8, fontSize: 11.5, color: '#64748B', fontFamily: 'monospace, monospace' }}>{v.problems}</div>
-                                    </div>
-                                ))}
-                                <div style={{ background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 16, padding: '18px 20px' }}>
-                                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 12 }}>ℹ️ How challenges work</div>
-                                    {[
-                                        ['1', 'Send a challenge to any registered user by email'],
-                                        ['2', 'Opponent accepts → contest clock starts immediately'],
-                                        ['3', 'Solve problems directly on LeetCode during the timer'],
-                                        ['4', 'Most problems solved wins · Tiebreak: fastest total time'],
-                                        ['5', 'Backend enforces all rules — no frontend cheats possible'],
-                                    ].map(([n, t]) => (
-                                        <div key={n} style={{ display: 'flex', gap: 12, marginBottom: 8, alignItems: 'flex-start' }}>
-                                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(99,102,241,.2)', border: '1px solid rgba(99,102,241,.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#818CF8', flexShrink: 0, marginTop: 1 }}>{n}</div>
-                                            <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>{t}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ══ MY CHALLENGES TAB ══ */}
-                    {tab === 'mine' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {loading && (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 14, color: '#64748B' }}>
-                                    <div style={{ width: 36, height: 36, border: '3px solid rgba(99,102,241,.2)', borderTop: '3px solid #6366F1', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
-                                    Loading challenges…
-                                </div>
-                            )}
-                            {!loading && myChallenges.length === 0 && (
-                                <div style={{ textAlign: 'center', padding: '70px 20px' }}>
-                                    <div style={{ fontSize: 56, marginBottom: 16 }}>⚔️</div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No challenges yet</div>
-                                    <div style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Challenge a friend to see your history here.</div>
-                                    <button onClick={() => setTab('create')} style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 11, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(99,102,241,.4)' }}>Create Challenge</button>
-                                </div>
-                            )}
-                            {myChallenges.map(c => {
-                                const cfg = MODES[c.contestType] || MODES.BEGINNER
-                                const isChallenger = c.challengerId === myEmail
-                                const opponent = isChallenger ? (c.opponentName || c.opponentId) : (c.challengerName || c.challengerId)
-                                const role = isChallenger ? 'Challenger' : 'Opponent'
-                                const iWon = c.winnerId === myEmail
-                                const isActive = c.status === 'ACTIVE'
-                                return (
-                                    <div key={c.id} style={{
-                                        background: 'rgba(255,255,255,.025)', backdropFilter: 'blur(20px)',
-                                        border: `1px solid ${isActive ? 'rgba(34,197,94,.2)' : iWon ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.06)'}`,
-                                        borderRadius: 16, padding: '18px 22px',
-                                        display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap',
-                                        transition: 'all .2s', cursor: 'pointer',
-                                        boxShadow: isActive ? '0 0 20px rgba(34,197,94,.08)' : 'none',
-                                    }}
-                                        onClick={() => navigate(`/contest/${c.id}`)}
-                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = `${cfg.color}40` }}
-                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = isActive ? 'rgba(34,197,94,.2)' : iWon ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.06)' }}
-                                    >
-                                        <div style={{ width: 46, height: 46, borderRadius: 12, background: cfg.bg, border: `1px solid ${cfg.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{cfg.icon}</div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-                                                <span style={{ fontSize: 14, fontWeight: 800 }}>#{c.id} · {cfg.label} Mode</span>
-                                                <StatusPill status={c.status} />
-                                                <span style={{ fontSize: 10, color: '#64748B', background: 'rgba(255,255,255,.05)', padding: '2px 8px', borderRadius: 20 }}>{role}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <Avatar name={opponent} size={22} color={cfg.color} />
-                                                <span style={{ fontSize: 12.5, color: '#94A3B8' }}>vs <strong style={{ color: '#F1F5F9' }}>{opponent}</strong></span>
-                                                <span style={{ fontSize: 11, color: '#475569' }}>· {new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                                            {c.winnerId && (
-                                                <div style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: iWon ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)', color: iWon ? '#22C55E' : '#EF4444', border: `1px solid ${iWon ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}` }}>
-                                                    {iWon ? '🏆 Won' : '😔 Lost'}
-                                                </div>
-                                            )}
-                                            <div style={{ background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.25)', color: '#818CF8', padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 12 }}>
-                                                {isActive ? '▶ Join Live' : 'View →'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-
-                    {/* ══ INVITATIONS TAB ══ */}
-                    {tab === 'invitations' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            {loading && (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 14, color: '#64748B' }}>
-                                    <div style={{ width: 36, height: 36, border: '3px solid rgba(99,102,241,.2)', borderTop: '3px solid #6366F1', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
-                                </div>
-                            )}
-                            {!loading && invitations.length === 0 && (
-                                <div style={{ textAlign: 'center', padding: '70px 20px' }}>
-                                    <div style={{ fontSize: 56, marginBottom: 16 }}>📬</div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No pending invitations</div>
-                                    <div style={{ fontSize: 13, color: '#64748B' }}>When someone challenges you, it will appear here.</div>
-                                </div>
-                            )}
-                            {invitations.map(c => {
-                                const cfg = MODES[c.contestType] || MODES.BEGINNER
-                                const acc = actionLoading === c.id + '-accept'
-                                const dec = actionLoading === c.id + '-decline'
-                                return (
-                                    <div key={c.id} style={{ background: cfg.bg, backdropFilter: 'blur(24px)', border: `1px solid ${cfg.border}`, borderRadius: 20, padding: '22px 24px', boxShadow: `0 0 40px ${cfg.glow}` }}>
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                                <Avatar name={c.challengerName || c.challengerId} size={50} color={cfg.color} />
-                                                <div>
-                                                    <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>
-                                                        <span style={{ color: cfg.color }}>{c.challengerName || c.challengerId}</span>
-                                                        <span style={{ color: '#94A3B8', fontWeight: 400 }}> challenged you!</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                                                        <div style={{ fontSize: 13, background: `${cfg.color}15`, color: cfg.color, padding: '3px 12px', borderRadius: 20, fontWeight: 700, border: `1px solid ${cfg.border}` }}>{cfg.icon} {cfg.label} Mode</div>
-                                                        <span style={{ fontSize: 11, color: '#64748B' }}>{cfg.time}</span>
-                                                    </div>
-                                                    <div style={{ fontSize: 11.5, color: '#64748B', fontFamily: 'monospace, monospace' }}>{cfg.problems}</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ fontSize: 11, color: '#475569' }}>
-                                                Sent {new Date(c.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 10, marginTop: 18, borderTop: `1px solid ${cfg.border}`, paddingTop: 16 }}>
-                                            <button onClick={() => handleDecline(c.id)} disabled={dec || acc} style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', color: '#EF4444', padding: '10px 20px', borderRadius: 11, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', opacity: (dec || acc) ? 0.5 : 1 }}>
-                                                {dec ? '…' : '✕ Decline'}
-                                            </button>
-                                            <button onClick={() => handleAccept(c.id)} disabled={acc || dec} style={{ flex: 1, background: `linear-gradient(135deg,${cfg.color},${cfg.color}cc)`, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 11, fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: `0 4px 18px ${cfg.glow}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (acc || dec) ? 0.7 : 1 }}>
-                                                {acc ? (<><span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />Starting…</>) : '⚔️ Accept & Start Contest'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                </main>
+                <Topbar title={title} subtitle={subtitle} />
+                <main className="page-content">{children}</main>
             </div>
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>

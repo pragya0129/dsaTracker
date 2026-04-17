@@ -1,5 +1,6 @@
 package com.example.dsa.recommendation;
 
+import com.example.dsa.user.UserInfoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -9,20 +10,26 @@ import org.springframework.web.bind.annotation.*;
 public class RecommendationController {
 
     private final RecommendationService service;
+    private final UserInfoService userInfoService;
 
-    public RecommendationController(RecommendationService service) {
+    public RecommendationController(RecommendationService service, UserInfoService userInfoService) {
         this.service = service;
+        this.userInfoService = userInfoService;
+    }
+
+    /** Converts authenticated email → numeric userId String (e.g. "1", "42") */
+    private String numericId(Authentication auth) {
+        return userInfoService.findIdByEmail(auth.getName());
     }
 
     /**
      * GET /recommendations/daily
-     * Returns 5 personalised problems, skill snapshot, weak topics, and difficulty
-     * level.
+     * Returns personalised problems, skill snapshot, weak topics, and difficulty level.
      */
     @GetMapping("/daily")
     public ResponseEntity<?> daily(Authentication auth,
             @RequestParam(defaultValue = "5") int limit) {
-        return ResponseEntity.ok(service.dailyRecommendations(auth.getName(), Math.min(limit, 10)));
+        return ResponseEntity.ok(service.dailyRecommendations(numericId(auth), Math.min(limit, 10)));
     }
 
     /**
@@ -31,7 +38,7 @@ public class RecommendationController {
      */
     @GetMapping("/weak-topics")
     public ResponseEntity<?> weakTopics(Authentication auth) {
-        return ResponseEntity.ok(service.weakTopics(auth.getName()));
+        return ResponseEntity.ok(service.weakTopics(numericId(auth)));
     }
 
     /**
@@ -40,6 +47,15 @@ public class RecommendationController {
      */
     @GetMapping("/difficulty-progress")
     public ResponseEntity<?> difficultyProgress(Authentication auth) {
-        return ResponseEntity.ok(service.difficultyProgress(auth.getName()));
+        return ResponseEntity.ok(service.difficultyProgress(numericId(auth)));
+    }
+
+    /**
+     * POST /recommendations/daily-mission/complete
+     * Marks today's active mission as done and returns the next mission immediately.
+     */
+    @PostMapping("/daily-mission/complete")
+    public ResponseEntity<?> completeMission(Authentication auth) {
+        return ResponseEntity.ok(service.completeMission(numericId(auth)));
     }
 }

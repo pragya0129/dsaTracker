@@ -40,7 +40,24 @@ async function authFetch(path, options = {}) {
 export async function authFetchJson(path, options = {}) {
     try {
         const res = await authFetch(path, options)
-        const data = await res.json()
+
+        // If token expired / invalid, backend now returns JSON 401 — clear session and redirect
+        if (res.status === 401) {
+            const body = await res.text()
+            let errMsg = 'Session expired. Please log in again.'
+            try { errMsg = JSON.parse(body)?.error || errMsg } catch (_) { /* ignore */ }
+            clearAuth()
+            window.location.href = '/login'
+            return { ok: false, error: errMsg }
+        }
+
+        // For non-2xx that still have a body, try to parse JSON
+        const text = await res.text()
+        if (!text) return { ok: false, error: `HTTP ${res.status} (empty response)` }
+        let data
+        try { data = JSON.parse(text) } catch (_) {
+            return { ok: false, error: `HTTP ${res.status}: unexpected response format` }
+        }
         if (res.ok) return { ok: true, data }
         return { ok: false, error: data?.error || data?.message || `HTTP ${res.status}` }
     } catch (e) {
@@ -360,11 +377,12 @@ export async function fetchLeetCodeSubmissions(username) {
    CHALLENGE / CONTEST APIs
 ───────────────────────────────────────────── */
 
-export async function createChallenge(opponentEmail, contestType) {
+export async function createChallenge(opponentEmail, contestType, customCounts = {}) {
     try {
+        const body = { opponentEmail, contestType, ...customCounts }
         const res = await authFetch('/challenges', {
             method: 'POST',
-            body: JSON.stringify({ opponentEmail, contestType }),
+            body: JSON.stringify(body),
         })
         const data = await res.json()
         if (res.ok) return { success: true, data }
@@ -464,4 +482,9 @@ export async function deletePost(id) {
 
 export async function fetchMyPosts() {
     return authFetchJson('/api/posts/mine')
+}
+
+// ── Recommendations ────────────────────────────────────────────────────────────
+export async function completeDailyMission() {
+    return authFetchJson('/recommendations/daily-mission/complete', { method: 'POST' })
 }
