@@ -11,10 +11,13 @@ export function getJWTToken() { return localStorage.getItem('jwt_token') }
 export function setJWTToken(token) { localStorage.setItem('jwt_token', token) }
 export function setUserEmail(email) { localStorage.setItem('jwt_email', email) }
 export function getUserEmail() { return localStorage.getItem('jwt_email') }
+export function setUserName(name) { localStorage.setItem('jwt_name', name) }
+export function getUserName() { return localStorage.getItem('jwt_name') || '' }
 
 export function clearAuth() {
     localStorage.removeItem('jwt_token')
     localStorage.removeItem('jwt_email')
+    localStorage.removeItem('jwt_name')
     localStorage.removeItem('algoledger_platforms')
 }
 
@@ -171,6 +174,7 @@ export async function register(name, email, password) {
         body: JSON.stringify({ name, email, password, roles: 'ROLE_USER' }),
     })
     const data = await res.text()
+    if (res.ok && name) setUserName(name)
     return { success: res.ok, data, status: res.status }
 }
 
@@ -186,6 +190,16 @@ export async function login(email, password) {
             const token = await res.text()
             setJWTToken(token)
             setUserEmail(email)
+            // Fetch user's name from backend
+            try {
+                const meRes = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                })
+                if (meRes.ok) {
+                    const me = await meRes.json()
+                    if (me.name) setUserName(me.name)
+                }
+            } catch (_) { /* name fetch is best-effort */ }
             return { success: true, token, email }
         } else {
             const error = await res.text()
@@ -198,6 +212,32 @@ export async function login(email, password) {
 
 /** Logout user */
 export function logout() { clearAuth() }
+
+/** Fetch current user's profile from backend */
+export async function fetchMe() {
+    return authFetchJson('/auth/me')
+}
+
+/** Update the authenticated user's display name */
+export async function updateProfile(name) {
+    return authFetchJson('/auth/me', {
+        method: 'PUT',
+        body: JSON.stringify({ name }),
+    })
+}
+
+/** Change the authenticated user's password */
+export async function changePassword(currentPassword, newPassword) {
+    return authFetchJson('/auth/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+    })
+}
+
+/** Permanently delete the authenticated user's account */
+export async function deleteAccount() {
+    return authFetchJson('/auth/me', { method: 'DELETE' })
+}
 
 /* ── Platform linking (stored in DB via backend) ── */
 

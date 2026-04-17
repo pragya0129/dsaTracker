@@ -1,21 +1,55 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
-import { getLinkedPlatforms, fetchDashboardData, syncAllPlatforms, getUserEmail } from '../services/api'
+import {
+    fetchDashboardData, syncAllPlatforms,
+    getUserEmail, getUserName, fetchMe,
+    updateProfile, changePassword, deleteAccount,
+    setUserName, logout,
+} from '../services/api'
 
 
 export default function ProfilePage() {
+    const navigate = useNavigate()
     const [activeTab, setActiveTab] = useState('overview')
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
     const [dashData, setDashData] = useState(null)
     const [syncing, setSyncing] = useState(false)
+    const [userName, setUserNameState] = useState(getUserName())
     const email = getUserEmail() || ''
+
+    // ── Edit name state ──
+    const [editingName, setEditingName] = useState(false)
+    const [nameInput, setNameInput] = useState('')
+    const [nameSaving, setNameSaving] = useState(false)
+    const [nameMsg, setNameMsg] = useState(null) // { type: 'success'|'error', text }
+    const nameInputRef = useRef(null)
+
+    // ── Change password state ──
+    const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+    const [pwSaving, setPwSaving] = useState(false)
+    const [pwMsg, setPwMsg] = useState(null) // { type, text }
+
+    // ── Delete account state ──
+    const [deleting, setDeleting] = useState(false)
 
     useEffect(() => {
         fetchDashboardData().then(r => {
             if (r.success) setDashData(r.data)
         }).catch(() => { })
+        fetchMe().then(r => {
+            if (r.ok && r.data?.name) {
+                setUserNameState(r.data.name)
+                setUserName(r.data.name)
+            }
+        }).catch(() => { })
     }, [])
+
+    // Focus name input when editing starts
+    useEffect(() => {
+        if (editingName && nameInputRef.current) nameInputRef.current.focus()
+    }, [editingName])
 
     const handleSync = useCallback(async () => {
         setSyncing(true)
@@ -27,13 +61,79 @@ export default function ProfilePage() {
         setSyncing(false)
     }, [])
 
-    // Derive stats from backend response
+    // ── Save display name ──
+    const handleSaveName = async () => {
+        if (!nameInput.trim()) return
+        setNameSaving(true)
+        setNameMsg(null)
+        const r = await updateProfile(nameInput.trim())
+        if (r.ok) {
+            setUserNameState(r.data.name)
+            setUserName(r.data.name)
+            setEditingName(false)
+            setNameMsg({ type: 'success', text: 'Name updated!' })
+            setTimeout(() => setNameMsg(null), 3000)
+        } else {
+            setNameMsg({ type: 'error', text: r.error || 'Failed to update name' })
+        }
+        setNameSaving(false)
+    }
+
+    const startEditName = () => {
+        setNameInput(userName || email.split('@')[0])
+        setEditingName(true)
+        setNameMsg(null)
+    }
+
+    // ── Change password ──
+    const handleChangePassword = async (e) => {
+        e.preventDefault()
+        setPwMsg(null)
+        if (pwForm.next !== pwForm.confirm) {
+            setPwMsg({ type: 'error', text: 'New passwords do not match' })
+            return
+        }
+        if (pwForm.next.length < 8) {
+            setPwMsg({ type: 'error', text: 'New password must be at least 8 characters' })
+            return
+        }
+        setPwSaving(true)
+        const r = await changePassword(pwForm.current, pwForm.next)
+        if (r.ok) {
+            setPwMsg({ type: 'success', text: 'Password updated successfully!' })
+            setPwForm({ current: '', next: '', confirm: '' })
+        } else {
+            setPwMsg({ type: 'error', text: r.error || 'Failed to update password' })
+        }
+        setPwSaving(false)
+    }
+
+    // ── Delete account ──
+    const handleDeleteAccount = async () => {
+        setDeleting(true)
+        const r = await deleteAccount()
+        if (r.ok) {
+            logout()
+            navigate('/login')
+        } else {
+            alert(r.error || 'Failed to delete account. Please try again.')
+            setDeleting(false)
+        }
+    }
+
+    // ── Derived stats ──
     const totalSolved = dashData?.totalSolved || 0
     const streak = dashData?.currentStreak || 0
     const hardSolved = dashData?.hardSolved || 0
     const platforms = dashData?.platforms || []
     const linkedPlats = dashData?.linkedPlatforms || []
     const platformCount = linkedPlats.length
+
+    const skillLevel = totalSolved >= 300 ? 'Expert'
+        : totalSolved >= 150 ? 'Advanced'
+        : totalSolved >= 50 ? 'Intermediate'
+        : 'Beginner'
+    const skillEmoji = totalSolved >= 300 ? '🏆' : totalSolved >= 150 ? '🚀' : totalSolved >= 50 ? '⚡' : '🌱'
 
     const activityStats = [
         { label: 'Total Solved', value: totalSolved || '—' },
@@ -42,7 +142,6 @@ export default function ProfilePage() {
         { label: 'Platforms Linked', value: platformCount || '—' },
     ]
 
-    // Build connected platforms from DB-backed data
     const connectedPlatforms = platforms.map(p => ({
         key: p.platform,
         label: p.platform === 'leetcode' ? 'LeetCode' : 'Codeforces',
@@ -58,6 +157,8 @@ export default function ProfilePage() {
         hasData: p.totalSolved > 0,
     }))
 
+    const displayName = userName || email.split('@')[0]
+
     return (
         <div className="app-shell">
             <Sidebar />
@@ -67,16 +168,50 @@ export default function ProfilePage() {
 
                     {/* Profile Header */}
                     <div className="profile-header" style={{ marginBottom: 20 }}>
-                        <div className="profile-avatar-lg">R</div>
+                        <div className="profile-avatar-lg">{(displayName || '?')[0].toUpperCase()}</div>
                         <div style={{ flex: 1 }}>
-                            <div className="profile-name">Rahul Sharma</div>
-                            <div className="profile-email">rahul@example.com</div>
+                            {/* Inline name editor */}
+                            {editingName ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                    <input
+                                        ref={nameInputRef}
+                                        value={nameInput}
+                                        onChange={e => setNameInput(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                                        className="input-field"
+                                        style={{ fontSize: 18, fontWeight: 700, padding: '4px 10px', maxWidth: 260 }}
+                                        placeholder="Your name"
+                                    />
+                                    <button
+                                        className="btn btn-primary btn-sm"
+                                        onClick={handleSaveName}
+                                        disabled={nameSaving || !nameInput.trim()}
+                                    >
+                                        {nameSaving ? '…' : '✓ Save'}
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={() => setEditingName(false)}
+                                    >✕</button>
+                                </div>
+                            ) : (
+                                <div className="profile-name">{displayName}</div>
+                            )}
+                            {nameMsg && (
+                                <div style={{
+                                    fontSize: 12, marginBottom: 4,
+                                    color: nameMsg.type === 'success' ? 'var(--success)' : 'var(--danger)',
+                                }}>
+                                    {nameMsg.text}
+                                </div>
+                            )}
+                            <div className="profile-email">{email}</div>
                             <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                                 <span style={{
                                     padding: '3px 10px', borderRadius: 'var(--radius-full)',
                                     background: 'var(--success-light)', color: 'var(--success)',
                                     fontSize: 12, fontWeight: 600,
-                                }}>⚡ Intermediate</span>
+                                }}>{skillEmoji} {skillLevel}</span>
                                 <span style={{
                                     padding: '3px 10px', borderRadius: 'var(--radius-full)',
                                     background: 'var(--accent-light)', color: 'var(--text-accent)',
@@ -92,7 +227,9 @@ export default function ProfilePage() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start' }}>
-                            <button className="btn btn-secondary btn-sm">✏️ Edit Profile</button>
+                            <button className="btn btn-secondary btn-sm" onClick={startEditName}>
+                                ✏️ Edit Profile
+                            </button>
                         </div>
                     </div>
 
@@ -151,10 +288,10 @@ export default function ProfilePage() {
                                 <div className="section-title" style={{ marginBottom: 20 }}>👤 Account Info</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                     {[
-                                        { label: 'Full Name', val: 'Rahul Sharma' },
-                                        { label: 'Email', val: 'rahul@example.com' },
-                                        { label: 'Member Since', val: 'January 2026' },
-                                        { label: 'Plan', val: 'Pro ✨' },
+                                        { label: 'Full Name', val: displayName },
+                                        { label: 'Email', val: email },
+                                        { label: 'Skill Level', val: `${skillEmoji} ${skillLevel}` },
+                                        { label: 'Plan', val: 'Free' },
                                     ].map(r => (
                                         <div key={r.label} style={{
                                             display: 'flex', justifyContent: 'space-between',
@@ -164,8 +301,12 @@ export default function ProfilePage() {
                                             <span style={{ fontSize: 14, fontWeight: 600 }}>{r.val}</span>
                                         </div>
                                     ))}
-                                    <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
-                                        ✏️ Edit Details
+                                    <button
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ alignSelf: 'flex-start' }}
+                                        onClick={startEditName}
+                                    >
+                                        ✏️ Edit Name
                                     </button>
                                 </div>
                             </div>
@@ -219,7 +360,6 @@ export default function ProfilePage() {
                                         </div>
                                     </div>
 
-                                    {/* Platform detailed stats (from DB) */}
                                     {p.hasData && (
                                         <div style={{
                                             display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
@@ -238,8 +378,6 @@ export default function ProfilePage() {
                                             Last synced: {new Date(p.updatedAt).toLocaleString()}
                                         </div>
                                     )}
-
-                                    {/* Source label */}
                                     {p.hasData && (
                                         <div style={{ marginTop: 8 }}>
                                             <span style={{
@@ -274,23 +412,61 @@ export default function ProfilePage() {
                             {/* Change password */}
                             <div className="card">
                                 <div className="section-title" style={{ marginBottom: 16 }}>🔒 Change Password</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     <div className="input-group">
                                         <label className="input-label">Current Password</label>
-                                        <input id="current-password" type="password" className="input-field" placeholder="••••••••" />
+                                        <input
+                                            id="current-password"
+                                            type="password"
+                                            className="input-field"
+                                            placeholder="••••••••"
+                                            value={pwForm.current}
+                                            onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                                            required
+                                        />
                                     </div>
                                     <div className="input-group">
                                         <label className="input-label">New Password</label>
-                                        <input id="new-password" type="password" className="input-field" placeholder="Min. 8 characters" />
+                                        <input
+                                            id="new-password"
+                                            type="password"
+                                            className="input-field"
+                                            placeholder="Min. 8 characters"
+                                            value={pwForm.next}
+                                            onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
+                                            required
+                                        />
                                     </div>
                                     <div className="input-group">
                                         <label className="input-label">Confirm New Password</label>
-                                        <input id="confirm-new-password" type="password" className="input-field" placeholder="Repeat new password" />
+                                        <input
+                                            id="confirm-new-password"
+                                            type="password"
+                                            className="input-field"
+                                            placeholder="Repeat new password"
+                                            value={pwForm.confirm}
+                                            onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                                            required
+                                        />
                                     </div>
-                                    <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
-                                        Update Password
+                                    {pwMsg && (
+                                        <div style={{
+                                            fontSize: 13, padding: '8px 12px', borderRadius: 'var(--radius-md)',
+                                            background: pwMsg.type === 'success' ? 'var(--success-light)' : 'var(--danger-light)',
+                                            color: pwMsg.type === 'success' ? 'var(--success)' : 'var(--danger)',
+                                        }}>
+                                            {pwMsg.type === 'success' ? '✓ ' : '✕ '}{pwMsg.text}
+                                        </div>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        style={{ alignSelf: 'flex-start' }}
+                                        disabled={pwSaving}
+                                    >
+                                        {pwSaving ? 'Updating…' : 'Update Password'}
                                     </button>
-                                </div>
+                                </form>
                             </div>
 
                             {/* Danger Zone */}
@@ -318,10 +494,17 @@ export default function ProfilePage() {
                                             Are you absolutely sure? This cannot be undone.
                                         </p>
                                         <div style={{ display: 'flex', gap: 8 }}>
-                                            <button className="btn btn-danger btn-sm">Yes, delete everything</button>
+                                            <button
+                                                className="btn btn-danger btn-sm"
+                                                onClick={handleDeleteAccount}
+                                                disabled={deleting}
+                                            >
+                                                {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                                            </button>
                                             <button
                                                 className="btn btn-secondary btn-sm"
                                                 onClick={() => setShowDeleteConfirm(false)}
+                                                disabled={deleting}
                                             >Cancel</button>
                                         </div>
                                     </div>

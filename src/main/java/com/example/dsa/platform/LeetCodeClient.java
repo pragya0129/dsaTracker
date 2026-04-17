@@ -66,6 +66,48 @@ public class LeetCodeClient {
   }
 
   /**
+   * Fetch up to `limit` recently accepted submission slugs for a user.
+   * Uses the recentAcSubmissionList GraphQL query (AC-only, no failed submissions).
+   * Limit is capped by LeetCode at ~500 in practice.
+   */
+  public Set<String> fetchAcSlugs(String username) {
+    String query = """
+        query recentAcSubmissions($username: String!, $limit: Int!) {
+          recentAcSubmissionList(username: $username, limit: $limit) {
+            titleSlug
+          }
+        }
+        """;
+
+    Map<String, Object> body = Map.of(
+        "query", query,
+        "variables", Map.of("username", username, "limit", 500));
+
+    try {
+      String raw = webClient.post()
+          .contentType(MediaType.APPLICATION_JSON)
+          .bodyValue(body)
+          .retrieve()
+          .bodyToMono(String.class)
+          .block();
+
+      JsonNode root = mapper.readTree(raw);
+      JsonNode list = root.path("data").path("recentAcSubmissionList");
+      if (list.isMissingNode() || !list.isArray())
+        return Set.of();
+
+      Set<String> slugs = new LinkedHashSet<>();
+      for (JsonNode node : list) {
+        String slug = node.path("titleSlug").asText("");
+        if (!slug.isBlank()) slugs.add(slug);
+      }
+      return slugs;
+    } catch (Exception e) {
+      return Set.of();
+    }
+  }
+
+  /**
    * Fetch full profile stats: total/easy/medium/hard solved, streak, topics.
    * Returns a map with keys: totalSolved, easySolved, mediumSolved, hardSolved,
    * currentStreak, longestStreak, topics (Map<String,Integer>)

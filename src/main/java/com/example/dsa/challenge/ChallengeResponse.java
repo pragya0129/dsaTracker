@@ -27,29 +27,23 @@ public class ChallengeResponse {
         private String name;
         private long solved;
         private LocalDateTime lastSolvedAt;
+        /** Title slugs of problems this participant has solved in this contest */
+        private List<String> solvedTitles;
 
-        public LeaderboardEntry(String userId, String name, long solved, LocalDateTime lastSolvedAt) {
+        public LeaderboardEntry(String userId, String name, long solved,
+                LocalDateTime lastSolvedAt, List<String> solvedTitles) {
             this.userId = userId;
             this.name = name;
             this.solved = solved;
             this.lastSolvedAt = lastSolvedAt;
+            this.solvedTitles = solvedTitles != null ? solvedTitles : List.of();
         }
 
-        public String getUserId() {
-            return userId;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public long getSolved() {
-            return solved;
-        }
-
-        public LocalDateTime getLastSolvedAt() {
-            return lastSolvedAt;
-        }
+        public String getUserId() { return userId; }
+        public String getName() { return name; }
+        public long getSolved() { return solved; }
+        public LocalDateTime getLastSolvedAt() { return lastSolvedAt; }
+        public List<String> getSolvedTitles() { return solvedTitles; }
     }
 
     public Long getId() {

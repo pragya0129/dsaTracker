@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { getUserName, getUserEmail, fetchDashboardData } from '../services/api'
 
 const NAV_ITEMS = [
     {
@@ -67,6 +69,34 @@ export default function Sidebar() {
     const navigate = useNavigate()
     const { pathname } = useLocation()
 
+    // ── Real user data ──
+    const rawName   = getUserName() || getUserEmail() || ''
+    const initial   = rawName ? rawName[0].toUpperCase() : '?'
+    const shortName = rawName.includes('@')
+        ? rawName.split('@')[0]
+        : (rawName.split(' ')[0] || 'User')
+
+    const [streak, setStreak] = useState(null)   // null = still loading
+
+    useEffect(() => {
+        fetchDashboardData()
+            .then(r => setStreak(r?.data?.currentStreak ?? 0))
+            .catch(() => setStreak(0))
+    }, [])
+
+    const streakColor =
+        streak === null  ? '#6B7280' :
+        streak > 14      ? '#F59E0B' :
+        streak > 6       ? '#FB923C' :
+        streak > 0       ? '#FCD34D' :
+                           '#6B7280'
+
+    const streakText =
+        streak === null ? '…'           :
+        streak === 0    ? 'No streak yet' :
+        streak === 1    ? '🔥 1 day'    :
+                          `🔥 ${streak} days`
+
     return (
         <aside className="sidebar">
             {/* Logo */}
@@ -81,10 +111,12 @@ export default function Sidebar() {
 
             {/* User mini-profile */}
             <div className="sidebar-user">
-                <div className="sidebar-user-avatar">R</div>
+                <div className="sidebar-user-avatar">{initial}</div>
                 <div className="sidebar-user-info">
-                    <div className="sidebar-user-name">Rahul S.</div>
-                    <div className="sidebar-user-rank">🔥 14 day streak</div>
+                    <div className="sidebar-user-name">{shortName}</div>
+                    <div className="sidebar-user-rank" style={{ color: streakColor }}>
+                        {streakText}
+                    </div>
                 </div>
             </div>
 
@@ -114,11 +146,21 @@ export default function Sidebar() {
             <div className="sidebar-bottom">
                 <div className="sidebar-xp-bar">
                     <div className="sidebar-xp-header">
-                        <span className="sidebar-xp-label">Daily Goal</span>
-                        <span className="sidebar-xp-count">3/5</span>
+                        <span className="sidebar-xp-label">Streak</span>
+                        <span className="sidebar-xp-count" style={{ color: streakColor }}>
+                            {streak === null ? '…' : streak > 0 ? `${streak}d` : '0d'}
+                        </span>
                     </div>
                     <div className="sidebar-xp-track">
-                        <div className="sidebar-xp-fill" style={{ width: '60%' }} />
+                        {/* fill grows toward 30-day milestone */}
+                        <div
+                            className="sidebar-xp-fill"
+                            style={{
+                                width: `${Math.min(100, ((streak || 0) / 30) * 100)}%`,
+                                background: streakColor,
+                                transition: 'width 0.6s ease',
+                            }}
+                        />
                     </div>
                 </div>
                 <button

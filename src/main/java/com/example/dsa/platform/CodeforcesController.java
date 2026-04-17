@@ -21,4 +21,15 @@ public class CodeforcesController {
         info.put("exists", exists);
         return info;
     }
+
+    /**
+     * Debug endpoint — returns the raw list of uniquely solved problems
+     * as computed from the Codeforces API, so you can compare vs. your profile.
+     * Call: GET /api/codeforces/debug/{handle}
+     */
+    @GetMapping("/debug/{handle}")
+    public Map<String, Object> debugSolved(@PathVariable String handle) {
+        return codeforcesClient.fetchDebugSolved(handle);
+    }
 }
+

@@ -42,6 +42,13 @@ public class UserStats {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * JSON snapshot of this platform's submission calendar: { "epochSeconds": count, ... }
+     * Used to compute a cross-platform streak in getDashboardData().
+     */
+    @Column(name = "calendar_json", columnDefinition = "TEXT")
+    private String calendarJson;
+
     public UserStats() {
     }
 
@@ -76,4 +83,7 @@ public class UserStats {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getCalendarJson() { return calendarJson; }
+    public void setCalendarJson(String calendarJson) { this.calendarJson = calendarJson; }
 }
