@@ -1,10 +1,15 @@
 /**
  * OnboardingPage.jsx
  * ──────────────────
- * Multi-step onboarding with submission-based account verification.
+ * Multi-step onboarding with proof-of-ownership verification.
  *
- * LeetCode: User submits "Create Hello World Function" to prove ownership.
- * Codeforces: User submits "4A - Watermelon" to prove ownership.
+ * The "prove you own the account" challenge is back: the user types their
+ * handle, clicks Link, the backend picks a target problem (LeetCode: Two Sum,
+ * Codeforces: 4A Watermelon) and records startTime. The user submits that
+ * problem on the real platform, clicks Check, and the backend scans their
+ * recent submissions for an Accepted entry after startTime. Verified only
+ * then. All of this now runs against the main backend (port 8080) — the
+ * old separate-service-on-port-4000 dependency is gone.
  */
 
 import { useState, useEffect } from 'react'
@@ -36,13 +41,21 @@ export default function OnboardingPage() {
     const [skill, setSkill] = useState(null)
     const [selectedCompanies, setSelectedCompanies] = useState([])
 
-    // Platform verification state
-    // status: 'idle' | 'pending' | 'checking' | 'verified'
-    // pending = problem link shown, waiting for user to submit
-    // checking = polling/checking submission
+    // Platform verification state.
+    //   status = 'idle'      → user is typing a handle
+    //            'pending'   → server picked a problem; waiting on the user
+    //                          to submit it on the real platform
+    //            'checking'  → we're polling the platform's recent submissions
+    //            'verified'  → proof accepted
     const [platformState, setPlatformState] = useState({
-        leetcode: { username: '', status: 'idle', problemUrl: null, problemName: null, startTime: null, message: '', loading: false },
-        codeforces: { username: '', status: 'idle', problemUrl: null, problemName: null, startTime: null, message: '', loading: false },
+        leetcode: {
+            username: '', status: 'idle', problemUrl: null, problemName: null,
+            problemSlug: null, startTime: null, message: '', loading: false,
+        },
+        codeforces: {
+            username: '', status: 'idle', problemUrl: null, problemName: null,
+            problemSlug: null, startTime: null, message: '', loading: false,
+        },
     })
 
     useEffect(() => {
@@ -67,88 +80,79 @@ export default function OnboardingPage() {
         return selectedCompanies.length > 0
     }
 
-    // ── Step 1: Initiate Verification — check username/handle, get problem link ──
-    const handleInitiate = async (platformKey) => {
+    // ── Step 1: tell the backend which handle we want to verify; it confirms
+    //           the account exists, picks a problem, and hands us a startTime. ──
+    const handleStart = async (platformKey) => {
         const ps = platformState[platformKey]
-        if (!ps.username.trim()) {
+        const handle = ps.username.trim()
+        if (!handle) {
             updatePlatform(platformKey, { message: 'Please enter a username first.' })
             return
         }
-
         updatePlatform(platformKey, { loading: true, message: '' })
-
         try {
-            let result
-            if (platformKey === 'leetcode') {
-                result = await api.initiateLeetCodeVerification(ps.username.trim())
-            } else {
-                result = await api.initiateCodeforcesVerification(ps.username.trim())
-            }
-
-            if (result.success) {
-                const d = result.data
+            const r = await api.verifyStart(platformKey, handle)
+            if (r.success) {
                 updatePlatform(platformKey, {
                     status: 'pending',
-                    problemUrl: d.problemUrl,
-                    problemName: platformKey === 'leetcode' ? d.problemName : '4A - Watermelon',
-                    startTime: d.startTime,
+                    problemSlug: r.data.problemSlug,
+                    problemName: r.data.problemName,
+                    problemUrl:  r.data.problemUrl,
+                    startTime:   r.data.startTime,
                     loading: false,
                     message: '',
                 })
             } else {
                 updatePlatform(platformKey, {
                     loading: false,
-                    message: result.message || 'Username / handle not found.',
+                    message: r.message || "Couldn't find that account. Check the spelling.",
                 })
             }
         } catch (e) {
             updatePlatform(platformKey, {
                 loading: false,
-                message: 'Network error. Is the backend running on port 4000?',
+                message: "Couldn't reach the verification service. Please try again in a moment.",
             })
         }
     }
 
-    // ── Step 2: Check Submission ──
-    const handleCheckSubmission = async (platformKey) => {
+    // ── Step 2: check the platform's recent submissions for proof of ownership. ──
+    const handleCheck = async (platformKey) => {
         const ps = platformState[platformKey]
+        if (!ps.problemSlug || !ps.startTime) return
         updatePlatform(platformKey, { loading: true, message: '', status: 'checking' })
-
         try {
-            let result
-            if (platformKey === 'leetcode') {
-                result = await api.checkLeetCodeSubmission(ps.username.trim(), ps.startTime)
-            } else {
-                result = await api.checkCodeforcesSubmission(ps.username.trim(), ps.startTime)
-            }
-
-            if (result.success) {
+            const r = await api.verifyCheck(platformKey, ps.username.trim(), ps.problemSlug, ps.startTime)
+            if (r.success) {
                 updatePlatform(platformKey, {
                     status: 'verified',
                     loading: false,
-                    message: '✅ Verified successfully!',
+                    message: '✅ Ownership confirmed!',
                 })
                 api.savePlatformVerified(platformKey, ps.username.trim(), true, new Date().toISOString())
             } else {
+                // Not found yet — stay in 'pending' so the Check button and
+                // problem link remain visible and the user can retry.
                 updatePlatform(platformKey, {
-                    status: 'pending',   // keep the problem link visible
+                    status: 'pending',
                     loading: false,
-                    message: result.message || 'Submission not found yet. Try again after submitting.',
+                    message: r.message || "Submission not found yet. Try again after you submit.",
                 })
             }
         } catch (e) {
             updatePlatform(platformKey, {
                 status: 'pending',
                 loading: false,
-                message: 'Network error during check.',
+                message: 'Network error during check. Try again.',
             })
         }
     }
 
-    // ── Reset a platform back to idle ──
+    // ── Reset a platform back to idle (lets the user try a different handle). ──
     const handleReset = (platformKey) => {
         updatePlatform(platformKey, {
-            status: 'idle', problemUrl: null, problemName: null, startTime: null, message: '', loading: false,
+            status: 'idle', problemUrl: null, problemName: null, problemSlug: null,
+            startTime: null, message: '', loading: false,
         })
     }
 
@@ -227,14 +231,14 @@ export default function OnboardingPage() {
                                             {ps.status === 'verified' && (
                                                 <span style={{
                                                     padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700,
-                                                    background: 'rgba(34,197,94,0.15)', color: '#22C55E',
+                                                    background: 'rgba(136,192,163,0.15)', color: 'var(--sage)',
                                                 }}>✓ Verified</span>
                                             )}
                                             {(ps.status === 'pending' || ps.status === 'checking') && (
                                                 <span style={{
                                                     padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700,
-                                                    background: 'rgba(245,158,11,0.15)', color: '#F59E0B',
-                                                }}>⏳ Pending</span>
+                                                    background: 'rgba(229,166,83,0.15)', color: 'var(--amber)',
+                                                }}>⏳ Awaiting submission</span>
                                             )}
                                         </div>
 
@@ -248,36 +252,42 @@ export default function OnboardingPage() {
                                                     placeholder={p.placeholder}
                                                     value={ps.username}
                                                     onChange={e => updatePlatform(p.key, { username: e.target.value })}
+                                                    onKeyDown={e => { if (e.key === 'Enter') handleStart(p.key) }}
                                                     style={{ flex: 1 }}
                                                     disabled={ps.loading}
+                                                    autoComplete="off"
+                                                    autoCapitalize="off"
+                                                    spellCheck={false}
                                                 />
                                                 <button
                                                     className="btn btn-primary btn-sm"
-                                                    onClick={() => handleInitiate(p.key)}
+                                                    onClick={() => handleStart(p.key)}
                                                     disabled={ps.loading || !ps.username.trim()}
                                                     style={{ whiteSpace: 'nowrap' }}
                                                 >
-                                                    {ps.loading ? '⏳...' : '🔗 Link'}
+                                                    {ps.loading ? '⏳…' : '🔗 Link'}
                                                 </button>
                                             </div>
                                         )}
 
-                                        {/* Pending: show problem to solve + Check Submission button */}
+                                        {/* Pending/checking: show the target problem + the Check button */}
                                         {(ps.status === 'pending' || ps.status === 'checking') && ps.problemUrl && (
-                                            <div style={{ marginTop: 8 }}>
+                                            <div style={{ marginTop: 4 }}>
                                                 <div style={{
-                                                    background: 'var(--bg-tertiary)', borderRadius: 8,
-                                                    padding: 12, fontSize: 13, marginBottom: 10,
-                                                    border: '1px solid var(--border-subtle, var(--border))',
+                                                    background: 'var(--bg-tertiary)',
+                                                    border: '1px dashed var(--border)',
+                                                    borderRadius: 10,
+                                                    padding: 12,
+                                                    marginBottom: 10,
                                                 }}>
-                                                    <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>
-                                                        Solve this problem to verify your account:
+                                                    <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)', fontSize: 13 }}>
+                                                        Prove you own <b>@{ps.username}</b>:
                                                     </div>
-                                                    <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                                        1. Open the problem link below and submit any solution (any language)
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: 12.5, marginBottom: 4 }}>
+                                                        1. Open the problem below and submit <i>anything</i> — even a wrong answer is fine
                                                     </div>
-                                                    <div style={{ color: 'var(--text-secondary)', marginBottom: 8 }}>
-                                                        2. Come back here and click "Check Submission"
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: 12.5, marginBottom: 10 }}>
+                                                        2. Come back and hit <b>Check Submission</b>
                                                     </div>
                                                     <a
                                                         href={ps.problemUrl}
@@ -285,34 +295,34 @@ export default function OnboardingPage() {
                                                         rel="noopener noreferrer"
                                                         style={{
                                                             display: 'inline-block',
-                                                            padding: '6px 12px', borderRadius: 6,
-                                                            background: 'rgba(99,102,241,0.1)',
-                                                            color: '#6366F1', fontWeight: 700,
+                                                            padding: '7px 14px', borderRadius: 7,
+                                                            background: 'var(--amber-light)',
+                                                            color: 'var(--amber)', fontWeight: 700,
                                                             fontSize: 13, textDecoration: 'none',
                                                         }}
                                                     >
                                                         🔗 {ps.problemName || 'Open Problem'}
                                                     </a>
-                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
-                                                        ⚠️ You must submit after clicking "Link" — we check submissions from that moment onward.
+                                                    <div className="accent-hand" style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 10 }}>
+                                                        only submissions after you clicked Link count — we record the timestamp server-side
                                                     </div>
                                                 </div>
 
                                                 <div style={{ display: 'flex', gap: 8 }}>
                                                     <button
                                                         className="btn btn-primary btn-sm"
-                                                        onClick={() => handleCheckSubmission(p.key)}
+                                                        onClick={() => handleCheck(p.key)}
                                                         disabled={ps.loading}
                                                         style={{ flex: 1 }}
                                                     >
-                                                        {ps.loading ? '⏳ Checking...' : '✓ Check Submission'}
+                                                        {ps.loading ? '⏳ Checking…' : '✓ Check Submission'}
                                                     </button>
                                                     <button
-                                                        className="btn btn-secondary btn-sm"
+                                                        className="btn btn-ghost btn-sm"
                                                         onClick={() => handleReset(p.key)}
                                                         disabled={ps.loading}
                                                     >
-                                                        ↩ Reset
+                                                        ↩ Cancel
                                                     </button>
                                                 </div>
                                             </div>
@@ -320,8 +330,17 @@ export default function OnboardingPage() {
 
                                         {/* Verified */}
                                         {ps.status === 'verified' && (
-                                            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                                                @{ps.username} — account ownership confirmed
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                                                    Verified as <b style={{ color: 'var(--text-primary)' }}>@{ps.username}</b>
+                                                </div>
+                                                <button
+                                                    className="btn btn-ghost btn-sm"
+                                                    onClick={() => handleReset(p.key)}
+                                                    style={{ fontSize: 12 }}
+                                                >
+                                                    Change
+                                                </button>
                                             </div>
                                         )}
 
@@ -329,7 +348,7 @@ export default function OnboardingPage() {
                                         {ps.message && (
                                             <div style={{
                                                 marginTop: 8, fontSize: 12, fontWeight: 600,
-                                                color: ps.status === 'verified' ? '#22C55E' : '#EF4444',
+                                                color: ps.status === 'verified' ? 'var(--sage)' : 'var(--rose)',
                                             }}>
                                                 {ps.message}
                                             </div>

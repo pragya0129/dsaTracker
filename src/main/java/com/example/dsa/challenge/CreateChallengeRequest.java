@@ -1,7 +1,13 @@
 package com.example.dsa.challenge;
 
 public class CreateChallengeRequest {
+    /**
+     * Legacy identifier: opponent's email. Still accepted so older clients keep
+     * working. New clients should prefer {@link #opponentUsername}.
+     */
     private String opponentEmail;
+    /** @handle of the opponent. Resolved to an email at service time. */
+    private String opponentUsername;
     private String contestType; // BEGINNER / MEDIUM / HARD / CUSTOM
 
     /** Custom mode: how many Easy problems (0-5, used only when contestType=CUSTOM) */
@@ -13,6 +19,9 @@ public class CreateChallengeRequest {
 
     public String getOpponentEmail() { return opponentEmail; }
     public void setOpponentEmail(String opponentEmail) { this.opponentEmail = opponentEmail; }
+
+    public String getOpponentUsername() { return opponentUsername; }
+    public void setOpponentUsername(String v) { this.opponentUsername = v; }
 
     public String getContestType() { return contestType; }
     public void setContestType(String contestType) { this.contestType = contestType; }

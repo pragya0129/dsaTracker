@@ -6,6 +6,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Service
@@ -20,6 +22,43 @@ public class LeetCodeClient {
         .defaultHeader("Content-Type", "application/json")
         .defaultHeader("Referer", "https://leetcode.com")
         .build();
+  }
+
+  /**
+   * Did this user submit <i>anything</i> to the given problem slug after the
+   * given epoch-seconds timestamp? Used by onboarding to prove the user
+   * actually owns the LeetCode handle — because submitting at all requires
+   * being logged in to that account, we don't need the submission to be
+   * Accepted. Even a failed attempt confirms login access.
+   *
+   * <p>LeetCode's {@code recentSubmissionList} returns the last ~15
+   * submissions as {titleSlug, timestamp (epoch seconds, as a string),
+   * statusDisplay}. Any row matching slug + timestamp >= startEpochSec
+   * proves ownership.
+   */
+  public boolean hasSubmissionAfter(String username, String titleSlug, long startEpochSec) {
+    if (username == null || titleSlug == null) return false;
+    List<Submission> subs = fetchRecentSubmissions(username);
+    for (Submission s : subs) {
+      if (!titleSlug.equalsIgnoreCase(s.getTitleSlug())) continue;
+      try {
+        long ts = Long.parseLong(s.getTimestamp());
+        if (ts >= startEpochSec) return true;
+      } catch (NumberFormatException ignored) { /* skip malformed */ }
+    }
+    return false;
+  }
+
+  /**
+   * Cheap handle-existence probe. Returns true if LeetCode resolves this
+   * username at all (regardless of activity). We hit the same endpoint the
+   * profile page uses; a non-existent user comes back with an empty
+   * matchedUser node.
+   */
+  public boolean userExists(String username) {
+    if (username == null || username.isBlank()) return false;
+    Map<String, Object> stats = fetchProfileStats(username);
+    return stats != null && stats.containsKey("totalSolved");
   }
 
   /** Fetch recent submissions (used for verification) */
@@ -179,8 +218,9 @@ public class LeetCodeClient {
       // --- Streak and Calendar ---
       JsonNode cal = user.path("userCalendar");
       if (!cal.isMissingNode()) {
+        // LeetCode's userCalendar.streak is their authoritative current streak
+        // for the user, so trust it directly.
         result.put("currentStreak", cal.path("streak").asInt(0));
-        result.put("longestStreak", cal.path("totalActiveDays").asInt(0));
 
         String calendarStr = cal.path("submissionCalendar").asText("{}");
         try {
@@ -190,7 +230,17 @@ public class LeetCodeClient {
             calendarMap.put(entry.getKey(), entry.getValue().asInt());
           });
           result.put("calendar", calendarMap);
+
+          // Compute a real longest streak from the calendar. Prior code put
+          // userCalendar.totalActiveDays here — which is "days with any
+          // submission ever", not the longest consecutive-day run — and so
+          // users were shown a fabricated "Longest Streak" metric.
+          Map<LocalDate, Integer> daily =
+              StreakCalculator.epochMapToDailyMap(calendarMap, ZoneOffset.UTC);
+          int longest = StreakCalculator.compute(daily)[1];
+          result.put("longestStreak", longest);
         } catch (Exception e) {
+          // Leave longestStreak at the default 0 set earlier if parsing fails.
         }
       }
 

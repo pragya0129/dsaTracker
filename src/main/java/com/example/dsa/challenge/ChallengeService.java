@@ -61,7 +61,18 @@ public class ChallengeService {
     /* ── 1. Create challenge ── */
     @Transactional
     public ChallengeResponse createChallenge(String challengerEmail, CreateChallengeRequest req) {
-        String opponentEmail = req.getOpponentEmail().trim().toLowerCase();
+        // Prefer @username when provided; fall back to email for legacy clients.
+        String opponentEmail;
+        if (req.getOpponentUsername() != null && !req.getOpponentUsername().isBlank()) {
+            String handle = req.getOpponentUsername().trim().toLowerCase();
+            UserInfo u = userInfoRepo.findByUsername(handle)
+                    .orElseThrow(() -> new IllegalArgumentException("No user with @" + handle));
+            opponentEmail = u.getEmail();
+        } else if (req.getOpponentEmail() != null && !req.getOpponentEmail().isBlank()) {
+            opponentEmail = req.getOpponentEmail().trim().toLowerCase();
+        } else {
+            throw new IllegalArgumentException("Specify an opponent by username or email");
+        }
         if (challengerEmail.equalsIgnoreCase(opponentEmail))
             throw new IllegalArgumentException("You cannot challenge yourself");
 
@@ -251,23 +262,24 @@ public class ChallengeService {
     @Scheduled(fixedDelay = 30_000)
     @Transactional
     public void autoExpire() {
-        List<Challenge> active = challengeRepo.findAll().stream()
-                .filter(c -> c.getStatus() == ChallengeStatus.ACTIVE
-                        && c.getEndTime() != null
-                        && LocalDateTime.now().isAfter(c.getEndTime()))
-                .collect(Collectors.toList());
-        for (Challenge c : active) {
+        LocalDateTime now = LocalDateTime.now();
+
+        // Previously: findAll() + in-memory filter — scanned the entire table
+        // every 30 seconds. Now the DB only returns rows that actually need
+        // expiring (use a compound index on (status, end_time) in MySQL).
+        List<Challenge> toFinish = challengeRepo.findByStatusAndEndTimeBefore(ChallengeStatus.ACTIVE, now);
+        for (Challenge c : toFinish) {
             resolveWinner(c);
             challengeRepo.save(c);
         }
-        // Expire old PENDING challenges (> 48 hours)
-        challengeRepo.findAll().stream()
-                .filter(c -> c.getStatus() == ChallengeStatus.PENDING
-                        && c.getCreatedAt().plusHours(48).isBefore(LocalDateTime.now()))
-                .forEach(c -> {
-                    c.setStatus(ChallengeStatus.EXPIRED);
-                    challengeRepo.save(c);
-                });
+
+        // Expire PENDING invites older than 48 hours (same indexed-query pattern).
+        List<Challenge> stalePending = challengeRepo.findByStatusAndCreatedAtBefore(
+                ChallengeStatus.PENDING, now.minusHours(48));
+        for (Challenge c : stalePending) {
+            c.setStatus(ChallengeStatus.EXPIRED);
+            challengeRepo.save(c);
+        }
     }
 
     /* ═══════ private helpers ═══════ */

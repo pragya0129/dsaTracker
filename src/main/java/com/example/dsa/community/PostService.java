@@ -1,5 +1,7 @@
 package com.example.dsa.community;
 
+import com.example.dsa.social.SavedPost;
+import com.example.dsa.social.SavedPostRepository;
 import com.example.dsa.user.UserInfo;
 import com.example.dsa.user.UserInfoRepository;
 import org.springframework.data.domain.Page;
@@ -8,8 +10,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,12 +22,14 @@ public class PostService {
     private final PostRepository postRepo;
     private final PostLikeRepository likeRepo;
     private final UserInfoRepository userRepo;
+    private final SavedPostRepository savedRepo;
 
     public PostService(PostRepository postRepo, PostLikeRepository likeRepo,
-            UserInfoRepository userRepo) {
+            UserInfoRepository userRepo, SavedPostRepository savedRepo) {
         this.postRepo = postRepo;
         this.likeRepo = likeRepo;
         this.userRepo = userRepo;
+        this.savedRepo = savedRepo;
     }
 
     /** Create a post for the authenticated user */
@@ -67,14 +73,48 @@ public class PostService {
         Post post = postRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found: " + id));
         boolean liked = likeRepo.existsByPostIdAndUserId(id, userEmail);
-        return PostDto.from(post, liked);
+        boolean saved = savedRepo.existsByUserEmailAndPostId(userEmail, id);
+        return PostDto.from(post, liked, saved, authorUsernameFor(post));
     }
 
     /** My posts */
     public List<PostDto> myPosts(String userEmail) {
-        return postRepo.findByUserIdOrderByCreatedAtDesc(userEmail)
-                .stream().map(p -> PostDto.from(p, likeRepo.existsByPostIdAndUserId(p.getId(), userEmail)))
+        List<Post> posts = postRepo.findByUserIdOrderByCreatedAtDesc(userEmail);
+        return hydrate(posts, userEmail);
+    }
+
+    /** Everything the authenticated user has saved, newest save first. */
+    public List<PostDto> savedPosts(String userEmail) {
+        List<SavedPost> rows = savedRepo.findByUserEmailOrderBySavedAtDesc(userEmail);
+        if (rows.isEmpty()) return List.of();
+        // Keep save-order by iterating rows and joining against Post by id.
+        Map<Long, Post> byId = postRepo.findAllById(
+                rows.stream().map(SavedPost::getPostId).collect(Collectors.toList())
+        ).stream().collect(Collectors.toMap(Post::getId, p -> p));
+        List<Post> ordered = rows.stream()
+                .map(r -> byId.get(r.getPostId()))
+                .filter(p -> p != null)
                 .collect(Collectors.toList());
+        return hydrate(ordered, userEmail);
+    }
+
+    /** Bookmark a post. Idempotent. */
+    @Transactional
+    public Map<String, Object> savePost(Long postId, String userEmail) {
+        if (!postRepo.existsById(postId)) {
+            throw new IllegalArgumentException("Post not found");
+        }
+        if (!savedRepo.existsByUserEmailAndPostId(userEmail, postId)) {
+            savedRepo.save(new SavedPost(userEmail, postId));
+        }
+        return Map.of("saved", true);
+    }
+
+    /** Remove a bookmark. Idempotent. */
+    @Transactional
+    public Map<String, Object> unsavePost(Long postId, String userEmail) {
+        savedRepo.deleteByUserEmailAndPostId(userEmail, postId);
+        return Map.of("saved", false);
     }
 
     /** Toggle like — returns new like count + liked state */
@@ -112,14 +152,40 @@ public class PostService {
 
     /* ── helpers ── */
     private Map<String, Object> buildPageResponse(Page<Post> paged, String userEmail) {
-        List<PostDto> posts = paged.getContent().stream()
-                .map(p -> PostDto.from(p, likeRepo.existsByPostIdAndUserId(p.getId(), userEmail)))
-                .collect(Collectors.toList());
-        return Map.of(
-                "posts", posts,
-                "page", paged.getNumber(),
-                "totalPages", paged.getTotalPages(),
-                "totalPosts", paged.getTotalElements(),
-                "hasNext", paged.hasNext());
+        List<PostDto> posts = hydrate(paged.getContent(), userEmail);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("posts", posts);
+        resp.put("page", paged.getNumber());
+        resp.put("totalPages", paged.getTotalPages());
+        resp.put("totalPosts", paged.getTotalElements());
+        resp.put("hasNext", paged.hasNext());
+        return resp;
+    }
+
+    /**
+     * Turn a list of Posts into a list of PostDtos, resolving each post's
+     * likedByMe / savedByMe / authorUsername. Batches the "is each post
+     * saved?" lookup so we don't N+1 the DB.
+     */
+    private List<PostDto> hydrate(List<Post> posts, String userEmail) {
+        if (posts.isEmpty()) return List.of();
+        List<Long> ids = posts.stream().map(Post::getId).collect(Collectors.toList());
+        Set<Long> savedIds = savedRepo.findSavedPostIdsForUser(userEmail, ids);
+        // Likes are cheap to check per-post and the existing schema's indexed
+        // on (post_id, user_id), so leave as-is rather than invent a new query.
+        return posts.stream().map(p -> PostDto.from(
+                p,
+                likeRepo.existsByPostIdAndUserId(p.getId(), userEmail),
+                savedIds.contains(p.getId()),
+                authorUsernameFor(p)
+        )).collect(Collectors.toList());
+    }
+
+    /** Per-post author @handle lookup — cheap thanks to the email index. */
+    private String authorUsernameFor(Post p) {
+        if (p.getUserId() == null) return null;
+        return userRepo.findByEmail(p.getUserId())
+                .map(UserInfo::getUsername)
+                .orElse(null);
     }
 }

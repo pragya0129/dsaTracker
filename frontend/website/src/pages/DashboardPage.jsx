@@ -41,7 +41,7 @@ function buildHeatmap(calMap) {
 /* ── tooltip ── */
 const TT = ({ active, payload, label }) =>
     active && payload?.length ? (
-        <div style={{ background: 'rgba(8,12,30,.98)', border: '1px solid rgba(99,102,241,.3)', borderRadius: 10, padding: '9px 14px', backdropFilter: 'blur(16px)', boxShadow: '0 8px 32px rgba(0,0,0,.4)' }}>
+        <div style={{ background: 'rgba(8,12,30,.98)', border: '1px solid rgba(229,166,83,.3)', borderRadius: 10, padding: '9px 14px', backdropFilter: 'blur(16px)', boxShadow: '0 8px 32px rgba(0,0,0,.4)' }}>
             <div style={{ fontSize: 10, color: '#64748B', marginBottom: 3 }}>{label}</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#F1F5F9' }}>
                 {payload[0].value}
@@ -60,7 +60,7 @@ const CARD = {
     padding: 22,
 }
 
-const HM_COLORS = ['rgba(255,255,255,0.04)', 'rgba(99,102,241,0.22)', 'rgba(99,102,241,0.48)', 'rgba(99,102,241,0.76)', '#6366F1']
+const HM_COLORS = ['rgba(255,255,255,0.04)', 'rgba(229,166,83,0.22)', 'rgba(229,166,83,0.48)', 'rgba(229,166,83,0.76)', '#E5A653']
 const P_COLOR = { high: '#EF4444', medium: '#F59E0B', low: '#22C55E' }
 const PMETA = {
     leetcode: { label: 'LeetCode', color: '#FFA116', icon: '🟡' },
@@ -91,7 +91,7 @@ function Pill({ label, color, size = 11 }) {
     )
 }
 
-function Ring({ value, max = 100, size = 120, stroke = 9, color = '#6366F1', sublabel }) {
+function Ring({ value, max = 100, size = 120, stroke = 9, color = '#E5A653', sublabel }) {
     const r = (size - stroke * 2) / 2
     const circ = 2 * Math.PI * r
     return (
@@ -240,11 +240,11 @@ export default function DashboardPage() {
             <div className="main-content">
                 <Topbar title="Dashboard" subtitle={today} />
                 <main className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ textAlign: 'center', maxWidth: 460, padding: 48, background: 'linear-gradient(135deg,rgba(99,102,241,.1),rgba(139,92,246,.04))', border: '1px solid rgba(99,102,241,.2)', borderRadius: 24 }}>
+                    <div style={{ textAlign: 'center', maxWidth: 460, padding: 48, background: 'linear-gradient(135deg,rgba(229,166,83,.1),rgba(159,143,227,.04))', border: '1px solid rgba(229,166,83,.2)', borderRadius: 24 }}>
                         <div style={{ fontSize: 60, marginBottom: 16 }}>🚀</div>
                         <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Welcome to AlgoLedger</h2>
                         <p style={{ color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 24 }}>Link your coding platforms to unlock your performance intelligence dashboard.</p>
-                        <a href="/onboarding" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', padding: '12px 28px', borderRadius: 12, fontWeight: 700, textDecoration: 'none' }}>Get Started →</a>
+                        <a href="/onboarding" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', padding: '12px 28px', borderRadius: 12, fontWeight: 700, textDecoration: 'none' }}>Get Started →</a>
                     </div>
                 </main>
             </div>
@@ -252,9 +252,9 @@ export default function DashboardPage() {
     )
 
     return (
-        <div className="app-shell" style={{ background: 'linear-gradient(140deg,#07091a 0%,#0d1327 50%,#080c1a 100%)' }}>
-            <div style={{ position: 'fixed', top: -220, right: -180, width: 560, height: 560, background: `radial-gradient(circle,${rankColor}0d,transparent 65%)`, borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
-            <div style={{ position: 'fixed', bottom: -180, left: -60, width: 480, height: 480, background: 'radial-gradient(circle,rgba(139,92,246,.06),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+        <div className="app-shell" style={{ background: 'linear-gradient(140deg, #0B0F1A 0%, #121727 50%, #0B0F1A 100%)' }}>
+            <div style={{ position: 'fixed', top: -220, right: -180, width: 560, height: 560, background: `radial-gradient(circle, ${rankColor}0d, transparent 65%)`, borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+            <div style={{ position: 'fixed', bottom: -180, left: -60, width: 480, height: 480, background: 'radial-gradient(circle, rgba(229,166,83,0.06), transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
 
             <Sidebar />
             <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
@@ -262,15 +262,15 @@ export default function DashboardPage() {
                 <main className="page-content" style={{ opacity: fade ? 1 : 0, transition: 'opacity .5s' }}>
 
                     {error && (
-                        <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.28)', borderRadius: 12, padding: '11px 16px', marginBottom: 16, color: '#EF4444', fontSize: 13, fontWeight: 600 }}>
+                        <div style={{ background: 'var(--danger-light)', border: '1px dashed rgba(216,139,168,0.35)', borderRadius: 'var(--radius-md)', padding: '11px 16px', marginBottom: 16, color: 'var(--rose)', fontSize: 13, fontWeight: 600 }}>
                             ⚠️ {error}
                         </div>
                     )}
 
                     {loading && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 120, gap: 14 }}>
-                            <div style={{ width: 42, height: 42, border: '3px solid rgba(99,102,241,.18)', borderTop: '3px solid #6366F1', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
-                            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Computing your analytics…</div>
+                            <div style={{ width: 42, height: 42, border: '3px solid rgba(229,166,83,0.18)', borderTop: '3px solid var(--amber)', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+                            <div className="accent-hand" style={{ color: 'var(--amber)', fontSize: 16 }}>computing your analytics…</div>
                         </div>
                     )}
 
@@ -278,7 +278,7 @@ export default function DashboardPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
                             {/* ══ HERO ══ */}
-                            <div style={{ ...CARD, background: 'linear-gradient(135deg,rgba(99,102,241,.11),rgba(139,92,246,.05))', position: 'relative', overflow: 'hidden', borderColor: `${rankColor}1f` }}>
+                            <div style={{ ...CARD, background: 'linear-gradient(135deg, rgba(229,166,83,0.08), rgba(216,139,168,0.05))', position: 'relative', overflow: 'hidden', borderColor: `${rankColor}1f` }}>
                                 <div style={{ position: 'absolute', top: -100, right: -100, width: 280, height: 280, background: `radial-gradient(circle,${rankColor}12,transparent 70%)`, borderRadius: '50%', pointerEvents: 'none' }} />
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20, position: 'relative', zIndex: 1 }}>
                                     <div style={{ flex: 1, minWidth: 260 }}>
@@ -290,7 +290,7 @@ export default function DashboardPage() {
                                         </div>
                                         <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 14px' }}>
                                             {consistency.currentStreak > 0
-                                                ? <><strong style={{ color: '#F59E0B' }}>{consistency.currentStreak}-day streak</strong> 🔥 · Best: <strong style={{ color: '#818CF8' }}>{consistency.longestStreak}d</strong> · {totalSolved} problems solved</>
+                                                ? <><strong style={{ color: '#F59E0B' }}>{consistency.currentStreak}-day streak</strong> 🔥 · Best: <strong style={{ color: '#9F8FE3' }}>{consistency.longestStreak}d</strong> · {totalSolved} problems solved</>
                                                 : `${totalSolved} problems solved. ${recommendation[0]?.action || 'Keep grinding!'}`}
                                         </p>
                                         {/* rank progress bar */}
@@ -317,7 +317,7 @@ export default function DashboardPage() {
                                         <button
                                             onClick={async () => { setSyncing(true); await api.syncAllPlatforms(); await load(); setSyncing(false) }}
                                             disabled={syncing}
-                                            style={{ background: syncing ? 'rgba(99,102,241,.12)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: syncing ? '#818CF8' : '#fff', border: '1px solid rgba(99,102,241,.28)', padding: '9px 18px', borderRadius: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .25s' }}>
+                                            style={{ background: syncing ? 'rgba(229,166,83,.12)' : 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: syncing ? '#9F8FE3' : '#fff', border: '1px solid rgba(229,166,83,.28)', padding: '9px 18px', borderRadius: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .25s' }}>
                                             {syncing ? '⏳ Syncing…' : '↻ Sync'}
                                         </button>
                                     </div>
@@ -327,10 +327,10 @@ export default function DashboardPage() {
                             {/* ══ KPI CARDS ══ */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 13 }}>
                                 {[
-                                    { icon: '✅', val: totalSolved, lbl: 'Total Solved', sub: `${easySolved}E · ${mediumSolved}M · ${hardSolved}H`, color: '#6366F1', pct: Math.min((totalSolved / 300) * 100, 100), trend: momentum.delta },
+                                    { icon: '✅', val: totalSolved, lbl: 'Total Solved', sub: `${easySolved}E · ${mediumSolved}M · ${hardSolved}H`, color: '#E5A653', pct: Math.min((totalSolved / 300) * 100, 100), trend: momentum.delta },
                                     { icon: '🎯', val: `${accRate}%`, lbl: 'Acceptance Rate', sub: `${accepted} accepted of ${subs.length} recent`, color: '#22C55E', pct: accRate },
                                     { icon: '⚡', val: efficiency.score, lbl: 'Efficiency Score', sub: `${efficiency.firstAttemptRate}% first-try (${efficiency.sampleSize} recent)`, color: '#38BDF8', pct: efficiency.score },
-                                    { icon: '📅', val: consistency.score, lbl: 'Consistency', sub: `${consistency.activeDays} active / last 30 days`, color: '#A78BFA', pct: consistency.score },
+                                    { icon: '📅', val: consistency.score, lbl: 'Consistency', sub: `${consistency.activeDays} active / last 30 days`, color: '#9F8FE3', pct: consistency.score },
                                     { icon: '📈', val: avgPerWeek, lbl: 'Avg / Week', sub: `Best: ${bestWeek} · This week: ${momentum.thisWeek}`, color: '#F59E0B', pct: bestWeek ? (momentum.thisWeek / bestWeek) * 100 : 0, trend: momentum.delta },
                                 ].map((s, i) => (
                                     <div key={i}
@@ -432,16 +432,16 @@ export default function DashboardPage() {
                                     sub="Depth score per topic: 0–60 pts for volume (20+ problems = cap), 0–40 pts relative to your strongest topic">
                                     <ResponsiveContainer width="100%" height={240}>
                                         <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
-                                            <PolarGrid stroke="rgba(99,102,241,.1)" />
+                                            <PolarGrid stroke="rgba(229,166,83,.1)" />
                                             <PolarAngleAxis dataKey="topic" tick={{ fill: '#94A3B8', fontSize: 10 }} />
-                                            <Radar name="Score" dataKey="score" stroke="#6366F1" fill="#6366F1" fillOpacity={0.4} />
+                                            <Radar name="Score" dataKey="score" stroke="#E5A653" fill="#E5A653" fillOpacity={0.4} />
                                             <Tooltip content={<TT />} />
                                         </RadarChart>
                                     </ResponsiveContainer>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginTop: 8 }}>
                                         {radarData.slice(0, 5).map(d => (
-                                            <div key={d.topic} style={{ textAlign: 'center', background: 'rgba(99,102,241,.06)', borderRadius: 8, padding: '7px 4px', border: '1px solid rgba(99,102,241,.1)' }}>
-                                                <div style={{ fontSize: 14, fontWeight: 900, color: d.score >= 60 ? '#6366F1' : d.score >= 30 ? '#F59E0B' : '#64748B' }}>{d.score}</div>
+                                            <div key={d.topic} style={{ textAlign: 'center', background: 'rgba(229,166,83,.06)', borderRadius: 8, padding: '7px 4px', border: '1px solid rgba(229,166,83,.1)' }}>
+                                                <div style={{ fontSize: 14, fontWeight: 900, color: d.score >= 60 ? '#E5A653' : d.score >= 30 ? '#F59E0B' : '#64748B' }}>{d.score}</div>
                                                 <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>{d.topic.split(' ').map(w => w[0]).join('')}</div>
                                                 <div style={{ fontSize: 9, color: 'var(--text-muted)', opacity: 0.7 }}>{d.count} solved</div>
                                             </div>
@@ -459,7 +459,7 @@ export default function DashboardPage() {
                                                 ['First-Try Rate', `${efficiency.firstAttemptRate}%`, '#22C55E'],
                                                 ['Avg Retries', `${efficiency.avgRetries}x`, '#F59E0B'],
                                                 ['Wrong Ratio', `${efficiency.wrongRatio}%`, '#EF4444'],
-                                                ['Unique Problems', `${efficiency.totalUnique}`, '#6366F1'],
+                                                ['Unique Problems', `${efficiency.totalUnique}`, '#E5A653'],
                                             ].map(([l, v, c]) => (
                                                 <div key={l} style={{ background: `${c}0d`, border: `1px solid ${c}22`, borderRadius: 10, padding: '10px 12px' }}>
                                                     <div style={{ fontSize: 18, fontWeight: 900, color: c, letterSpacing: '-0.02em' }}>{v}</div>
@@ -475,7 +475,7 @@ export default function DashboardPage() {
                             <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16 }}>
                                 <Section title="Consistency" sub="Computed from active days, inactivity gaps, and current streak">
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                                        <Ring value={consistency.score} size={120} stroke={9} color="#A78BFA" sublabel="/ 100" />
+                                        <Ring value={consistency.score} size={120} stroke={9} color="#9F8FE3" sublabel="/ 100" />
                                         {[
                                             ['Active / 30 Days', `${consistency.activeDays}`, '#22C55E'],
                                             ['Current Streak', `${consistency.currentStreak}d`, '#F59E0B'],
@@ -517,7 +517,7 @@ export default function DashboardPage() {
                                     sub="Problems solved per week · last 16 weeks · dashed line = weekly average"
                                     right={
                                         <div style={{ display: 'flex', gap: 18 }}>
-                                            {[['Best', bestWeek, '#6366F1'], ['Avg', avgWeekSolved, '#38BDF8'], ['This wk', momentum.thisWeek, momentum.delta >= 0 ? '#22C55E' : '#EF4444']].map(([l, v, c]) => (
+                                            {[['Best', bestWeek, '#E5A653'], ['Avg', avgWeekSolved, '#38BDF8'], ['This wk', momentum.thisWeek, momentum.delta >= 0 ? '#22C55E' : '#EF4444']].map(([l, v, c]) => (
                                                 <div key={l} style={{ textAlign: 'right' }}>
                                                     <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{l}</div>
                                                     <div style={{ fontSize: 18, fontWeight: 900, color: c }}>{v}</div>
@@ -530,13 +530,13 @@ export default function DashboardPage() {
                                             <XAxis dataKey="week" tick={{ fill: '#475569', fontSize: 9 }} axisLine={false} tickLine={false} interval={3} />
                                             <YAxis hide />
                                             <Tooltip content={<TT />} />
-                                            <ReferenceLine y={avgWeekSolved} stroke="rgba(99,102,241,.35)" strokeDasharray="4 3" />
+                                            <ReferenceLine y={avgWeekSolved} stroke="rgba(229,166,83,.35)" strokeDasharray="4 3" />
                                             <Bar dataKey="solved" name="solved" radius={[5, 5, 0, 0]}>
                                                 {weekly.map((w, i) => (
                                                     <Cell key={i} fill={
-                                                        w.solved === bestWeek ? '#6366F1'
-                                                            : w.solved >= avgWeekSolved ? 'rgba(99,102,241,.55)'
-                                                                : 'rgba(99,102,241,.28)'
+                                                        w.solved === bestWeek ? '#E5A653'
+                                                            : w.solved >= avgWeekSolved ? 'rgba(229,166,83,.55)'
+                                                                : 'rgba(229,166,83,.28)'
                                                     } />
                                                 ))}
                                             </Bar>
@@ -566,7 +566,7 @@ export default function DashboardPage() {
                             <Section
                                 title="🧠 Smart Recommendations"
                                 sub="Based on your topic gaps, difficulty mix, and practice patterns"
-                                right={<Pill label={`${recommendation.length} actions`} color="#6366F1" size={10} />}>
+                                right={<Pill label={`${recommendation.length} actions`} color="#E5A653" size={10} />}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     {recommendation.map((r, i) => (
                                         <div key={i}
@@ -601,8 +601,8 @@ export default function DashboardPage() {
                                             {[
                                                 ['M+H Ratio', contest.breakdown.mhScore, 35, '#38BDF8'],
                                                 ['Hard Exp.', contest.breakdown.hardScore, 20, '#EF4444'],
-                                                ['Efficiency', contest.breakdown.effScore, 20, '#6366F1'],
-                                                ['Consistency', contest.breakdown.conScore, 15, '#A78BFA'],
+                                                ['Efficiency', contest.breakdown.effScore, 20, '#E5A653'],
+                                                ['Consistency', contest.breakdown.conScore, 15, '#9F8FE3'],
                                             ].map(([l, v, max, c]) => (
                                                 <div key={l}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -634,7 +634,7 @@ export default function DashboardPage() {
                             {/* ══ PREDICTIVE PROGRESS ══ */}
                             <Section title="📊 Predictive Progress" sub={`At your current pace of ${prediction.avgPerDay} problems/day (based on last 21 days)`}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 18 }}>
-                                    {[['In 30 Days', prediction.in30, '#38BDF8'], ['In 90 Days', prediction.in90, '#6366F1'], ['In 180 Days', prediction.in180, '#A78BFA']].map(([l, v, c]) => (
+                                    {[['In 30 Days', prediction.in30, '#38BDF8'], ['In 90 Days', prediction.in90, '#E5A653'], ['In 180 Days', prediction.in180, '#9F8FE3']].map(([l, v, c]) => (
                                         <div key={l} style={{ background: `${c}0d`, border: `1px solid ${c}22`, borderRadius: 12, padding: '16px 18px', textAlign: 'center' }}>
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</div>
                                             <div style={{ fontSize: 30, fontWeight: 900, color: c, letterSpacing: '-0.02em' }}>{v}</div>
@@ -648,7 +648,7 @@ export default function DashboardPage() {
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px', background: m.reached ? 'rgba(34,197,94,.06)' : 'rgba(255,255,255,.02)', border: `1px solid ${m.reached ? 'rgba(34,197,94,.18)' : 'rgba(255,255,255,.05)'}`, borderRadius: 10 }}>
                                             <div style={{ fontSize: 11, fontWeight: 700, color: m.reached ? '#22C55E' : 'var(--text-muted)', width: 50 }}>{m.target}</div>
                                             <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,.05)', borderRadius: 5, overflow: 'hidden' }}>
-                                                <div style={{ height: '100%', width: `${Math.min((totalSolved / m.target) * 100, 100)}%`, background: m.reached ? '#22C55E' : 'linear-gradient(90deg,#6366F1,#8B5CF6)', borderRadius: 5, transition: 'width 1.3s ease', boxShadow: m.reached ? '0 0 6px #22C55E60' : undefined }} />
+                                                <div style={{ height: '100%', width: `${Math.min((totalSolved / m.target) * 100, 100)}%`, background: m.reached ? '#22C55E' : 'linear-gradient(90deg,#E5A653,#9F8FE3)', borderRadius: 5, transition: 'width 1.3s ease', boxShadow: m.reached ? '0 0 6px #22C55E60' : undefined }} />
                                             </div>
                                             <div style={{ fontSize: 11, color: m.reached ? '#22C55E' : 'var(--text-muted)', width: 100, textAlign: 'right' }}>
                                                 {m.reached ? '✓ Reached' : m.eta ? `~${m.eta}` : 'Need more data'}
@@ -662,7 +662,7 @@ export default function DashboardPage() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                                 <Section title="Platform Breakdown" sub="Per-platform difficulty distribution">
                                     {linked.map(lp => {
-                                        const m = PMETA[lp.platform] || { label: lp.platform, color: '#6366F1', icon: '🔷' }
+                                        const m = PMETA[lp.platform] || { label: lp.platform, color: '#E5A653', icon: '🔷' }
                                         const ps = platforms.find(p => p.platform === lp.platform) || {}
                                         const sv = ps.totalSolved || 0
                                         const e = ps.easySolved || 0
@@ -716,7 +716,7 @@ export default function DashboardPage() {
                                                 { min: 0, label: 'Novice', c: '#64748B' },
                                                 { min: 5, label: 'Beginner', c: '#F59E0B' },
                                                 { min: 10, label: 'Intermediate', c: '#22C55E' },
-                                                { min: 20, label: 'Advanced', c: '#6366F1' },
+                                                { min: 20, label: 'Advanced', c: '#E5A653' },
                                                 { min: 35, label: 'Expert', c: '#38BDF8' },
                                                 { min: 60, label: 'Master', c: '#A855F7' },
                                             ]
@@ -794,11 +794,11 @@ export default function DashboardPage() {
                                         <div style={{ display: 'flex', gap: 8 }}>
                                             <span style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(34,197,94,.1)', color: '#22C55E', fontSize: 11, fontWeight: 700 }}>{accepted} AC</span>
                                             <span style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(239,68,68,.1)', color: '#EF4444', fontSize: 11, fontWeight: 700 }}>{subs.length - accepted} non-AC</span>
-                                            <span style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(99,102,241,.1)', color: '#6366F1', fontSize: 11, fontWeight: 700 }}>{accRate}%</span>
+                                            <span style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(229,166,83,.1)', color: '#E5A653', fontSize: 11, fontWeight: 700 }}>{accRate}%</span>
                                         </div>
                                     }>
                                     <div style={{ position: 'relative', paddingLeft: 20 }}>
-                                        <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, background: 'linear-gradient(180deg,rgba(99,102,241,.45),transparent)', borderRadius: 2 }} />
+                                        <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, background: 'linear-gradient(180deg,rgba(229,166,83,.45),transparent)', borderRadius: 2 }} />
                                         {subs.length === 0
                                             ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24, fontSize: 13 }}>No recent submissions found.</div>
                                             : subs.slice(0, 8).map((s, i) => {
@@ -853,9 +853,9 @@ export default function DashboardPage() {
                                     {[
                                         { title: 'First Blood', desc: 'Solve 1 problem', cur: totalSolved, tgt: 1, icon: '🩸', color: '#EF4444' },
                                         { title: 'Warm Up', desc: 'Solve 10 problems', cur: totalSolved, tgt: 10, icon: '🔥', color: '#F59E0B' },
-                                        { title: 'Half Century', desc: 'Solve 50 problems', cur: totalSolved, tgt: 50, icon: '🌟', color: '#8B5CF6' },
+                                        { title: 'Half Century', desc: 'Solve 50 problems', cur: totalSolved, tgt: 50, icon: '🌟', color: '#9F8FE3' },
                                         { title: 'Century', desc: 'Solve 100 problems', cur: totalSolved, tgt: 100, icon: '👑', color: '#38BDF8' },
-                                        { title: 'Grinder', desc: 'Solve 200 problems', cur: totalSolved, tgt: 200, icon: '⚡', color: '#6366F1' },
+                                        { title: 'Grinder', desc: 'Solve 200 problems', cur: totalSolved, tgt: 200, icon: '⚡', color: '#E5A653' },
                                         { title: 'Streak Master', desc: '14-day streak', cur: consistency.longestStreak, tgt: 14, icon: '🔥', color: '#10B981' },
                                         { title: 'Efficiency Pro', desc: 'Efficiency ≥ 70', cur: efficiency.score, tgt: 70, icon: '🎯', color: '#F59E0B' },
                                         { title: 'Contest Ready', desc: 'Contest score ≥ 60', cur: contest.score, tgt: 60, icon: '🏆', color: '#22C55E' },

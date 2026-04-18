@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class PlatformSyncService {
@@ -244,15 +243,29 @@ public class PlatformSyncService {
     /**
      * Persist newly-seen AC slugs. Returns only the brand-new ones so we
      * only notify the challenge service for genuinely new solves.
+     *
+     * <p>Previously did N SELECTs (one {@code existsByUserIdAndPlatformAndTitleSlug}
+     * per slug) which at LeetCode's 500-submission profiles turned a single
+     * sync into a 500-query storm. Now one SELECT fetches every known slug
+     * for this {@code (user, platform)}, we do the diff in-memory, and
+     * {@code saveAll} batches the INSERTs.
      */
     private Set<String> persistSolvedSlugs(String userId, String platform, Set<String> slugs) {
+        if (slugs == null || slugs.isEmpty()) return Set.of();
+
+        Set<String> existing = solvedProblemRepo.findSlugsByUserIdAndPlatform(userId, platform);
+
         Set<String> newSlugs = new LinkedHashSet<>();
+        List<UserSolvedProblem> toInsert = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
         for (String slug : slugs) {
-            if (!solvedProblemRepo.existsByUserIdAndPlatformAndTitleSlug(userId, platform, slug)) {
-                solvedProblemRepo.save(new UserSolvedProblem(userId, platform, slug, now));
-                newSlugs.add(slug);
-            }
+            if (slug == null || slug.isBlank()) continue;
+            if (existing.contains(slug)) continue;
+            newSlugs.add(slug);
+            toInsert.add(new UserSolvedProblem(userId, platform, slug, now));
+        }
+        if (!toInsert.isEmpty()) {
+            solvedProblemRepo.saveAll(toInsert);
         }
         return newSlugs;
     }
@@ -327,12 +340,14 @@ public class PlatformSyncService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // Streak computation helpers
+    // Streak computation helpers (delegated to StreakCalculator)
     // ═══════════════════════════════════════════════════════════
 
     /**
      * Convert a Unix epoch string (seconds) to a UTC LocalDate.
-     * Returns null if unparseable.
+     * Returns null if unparseable. Kept for the
+     * {@link #getDashboardData(String)} path which currently reads each
+     * platform's stored calendar_json one entry at a time.
      */
     private LocalDate epochToDate(String epochStr) {
         try {
@@ -344,52 +359,12 @@ public class PlatformSyncService {
     }
 
     /**
-     * Given a merged map of {date → submission count} across ALL platforms,
-     * compute:
-     *   [0] currentStreak  — consecutive days ending today (or yesterday if not yet coded today)
-     *   [1] longestStreak  — longest consecutive-day run ever
-     *
-     * A day is "active" if submission count > 0 on any linked platform.
+     * Compute [current, longest] streaks from a merged daily-activity map.
+     * Thin wrapper so callers don't have to reach for the util class; the
+     * actual math lives in {@link StreakCalculator} and is shared with
+     * {@link LeetCodeClient}'s per-platform longestStreak computation.
      */
     private int[] computeStreaks(Map<LocalDate, Integer> dailyActivity) {
-        if (dailyActivity.isEmpty()) return new int[]{0, 0};
-
-        Set<LocalDate> activeDays = dailyActivity.entrySet().stream()
-                .filter(e -> e.getValue() > 0)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-
-        if (activeDays.isEmpty()) return new int[]{0, 0};
-
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        LocalDate yesterday = today.minusDays(1);
-
-        // ── Current streak ──
-        // Streak is alive if there's activity today or yesterday
-        int current = 0;
-        LocalDate cursor = activeDays.contains(today) ? today
-                : activeDays.contains(yesterday) ? yesterday
-                : null;
-        if (cursor != null) {
-            while (activeDays.contains(cursor)) {
-                current++;
-                cursor = cursor.minusDays(1);
-            }
-        }
-
-        // ── Longest streak ──
-        List<LocalDate> sorted = new ArrayList<>(activeDays);
-        Collections.sort(sorted);
-        int longest = 1, run = 1;
-        for (int i = 1; i < sorted.size(); i++) {
-            if (sorted.get(i).equals(sorted.get(i - 1).plusDays(1))) {
-                run++;
-                longest = Math.max(longest, run);
-            } else {
-                run = 1;
-            }
-        }
-
-        return new int[]{current, longest};
+        return StreakCalculator.compute(dailyActivity);
     }
 }

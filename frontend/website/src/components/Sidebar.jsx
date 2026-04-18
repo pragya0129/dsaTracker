@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getUserName, getUserEmail, fetchDashboardData } from '../services/api'
+import { useProfilePic } from '../utils/profilePic'
 
 const NAV_ITEMS = [
     {
@@ -65,6 +66,7 @@ export default function Sidebar() {
     const shortName = rawName.includes('@')
         ? rawName.split('@')[0]
         : (rawName.split(' ')[0] || 'User')
+    const profilePic = useProfilePic()
 
     const [streak, setStreak] = useState(null)   // null = still loading
 
@@ -96,15 +98,30 @@ export default function Sidebar() {
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                 </div>
-                <span className="sidebar-logo-text">Algo<span>Ledger</span></span>
+                <span className="sidebar-logo-text">
+                    Algo<span className="accent-italic" style={{ fontWeight: 600 }}>Ledger</span>
+                </span>
             </div>
 
             {/* User mini-profile */}
             <div className="sidebar-user">
-                <div className="sidebar-user-avatar">{initial}</div>
+                <div
+                    className="sidebar-user-avatar"
+                    style={profilePic ? {
+                        backgroundImage: `url(${profilePic})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        color: 'transparent',
+                    } : undefined}
+                >
+                    {profilePic ? '' : initial}
+                </div>
                 <div className="sidebar-user-info">
                     <div className="sidebar-user-name">{shortName}</div>
-                    <div className="sidebar-user-rank" style={{ color: streakColor }}>
+                    <div
+                        className="sidebar-user-rank accent-hand"
+                        style={{ color: streakColor, fontSize: 15 }}
+                    >
                         {streakText}
                     </div>
                 </div>

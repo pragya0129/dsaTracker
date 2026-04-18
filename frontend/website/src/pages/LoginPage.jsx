@@ -41,24 +41,31 @@ export default function LoginPage() {
                 <div className="auth-logo">
                     <div className="sidebar-logo-icon">A</div>
                     <span style={{ fontSize: 18, fontWeight: 700 }}>
-                        Algo<span style={{ color: 'var(--text-accent)' }}>Ledger</span>
+                        Algo<span className="accent-italic" style={{ fontWeight: 600 }}>Ledger</span>
                     </span>
                 </div>
 
-                <h1 className="auth-title">Welcome back</h1>
-                <p className="auth-sub">Sign in to continue your DSA journey.</p>
+                <div className="accent-hand" style={{ color: 'var(--amber)', fontSize: 18, marginBottom: 4, transform: 'rotate(-2deg)', display: 'inline-block' }}>
+                    welcome back 👋
+                </div>
+                <h1 className="auth-title">
+                    Pick up where <span className="accent-italic">you</span> left off.
+                </h1>
+                <p className="auth-sub">
+                    Sign in to keep the streak alive and the grind honest.
+                </p>
 
                 {error && (
                     <div style={{
-                        backgroundColor: '#fee2e2',
-                        color: '#991b1b',
-                        padding: '12px',
-                        borderRadius: '8px',
+                        background: 'var(--danger-light)',
+                        color: 'var(--rose)',
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-md)',
                         marginBottom: '16px',
                         fontSize: '14px',
-                        border: '1px solid #fecaca'
+                        border: '1px dashed rgba(216,139,168,0.35)',
                     }}>
-                        {error}
+                        ✕ {error}
                     </div>
                 )}
 

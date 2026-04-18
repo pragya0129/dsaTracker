@@ -1,6 +1,7 @@
 package com.example.dsa.config;
 
 import com.example.dsa.auth.JwtAuthFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -16,6 +17,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -29,13 +32,19 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+    /** Comma-separated list of CORS origins allowed to call this backend.
+     *  Set via app.cors.origins (env: APP_CORS_ORIGINS). Localhost defaults
+     *  for dev. */
+    private final String corsOriginsRaw;
 
     public SecurityConfig(@Lazy JwtAuthFilter jwtAuthFilter,
             UserDetailsService userDetailsService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            @Value("${app.cors.origins:http://localhost:5173,http://127.0.0.1:5173}") String corsOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
+        this.corsOriginsRaw = corsOrigins;
     }
 
     @Bean
@@ -44,8 +53,19 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Public auth endpoints
-                        .requestMatchers("/auth/welcome", "/auth/addNewUser", "/auth/generateToken").permitAll()
+                        // Public auth endpoints.
+                        // /auth/addNewUser is intentionally NOT here — it
+                        // bypasses email verification and is now admin-only
+                        // (useful for seed scripts, not for public signup).
+                        .requestMatchers(
+                                "/auth/welcome",
+                                "/auth/generateToken",
+                                "/auth/signup/request",
+                                "/auth/signup/resend",
+                                "/auth/signup/verify",
+                                "/auth/username/check").permitAll()
+                        // Admin-only legacy direct-create endpoint.
+                        .requestMatchers("/auth/addNewUser").hasAuthority("ROLE_ADMIN")
                         // Public platform APIs (username verification during onboarding)
                         .requestMatchers("/api/leetcode/**", "/api/codeforces/**", "/challenges/problems/seed")
                         .permitAll()
@@ -62,8 +82,12 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        List<String> origins = Arrays.stream(corsOriginsRaw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://127.0.0.1:5173"));
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

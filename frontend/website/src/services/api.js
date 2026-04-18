@@ -3,7 +3,9 @@
  * Platform sync (LeetCode stats) is done server-side → stored in DB → served via /api/platforms/dashboard
  */
 
-const API_BASE = 'http://localhost:8080'
+// Read from Vite's build-time env (`VITE_API_BASE`) on the deployed frontend;
+// fall through to localhost:8080 for local dev with `npm run dev`.
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080'
 
 /* ── JWT Token Management ── */
 
@@ -13,12 +15,20 @@ export function setUserEmail(email) { localStorage.setItem('jwt_email', email) }
 export function getUserEmail() { return localStorage.getItem('jwt_email') }
 export function setUserName(name) { localStorage.setItem('jwt_name', name) }
 export function getUserName() { return localStorage.getItem('jwt_name') || '' }
+export function setUsername(u) { if (u) localStorage.setItem('jwt_username', u); else localStorage.removeItem('jwt_username') }
+export function getUsername() { return localStorage.getItem('jwt_username') || '' }
 
 export function clearAuth() {
     localStorage.removeItem('jwt_token')
     localStorage.removeItem('jwt_email')
     localStorage.removeItem('jwt_name')
+    localStorage.removeItem('jwt_username')
     localStorage.removeItem('algoledger_platforms')
+    // Profile pic cache — cleared via the shared helper so avatars update live.
+    try {
+        // Dynamic import avoids a circular dep at module-load time.
+        import('../utils/profilePic').then(m => m.clearProfilePic()).catch(() => {})
+    } catch { /* ignore */ }
 }
 
 export function isAuthenticated() {
@@ -109,52 +119,64 @@ export function getLinkedPlatformsFull() {
     } catch { return {} }
 }
 
-/* ── Demo Backend (port 4000) — Verification API calls ── */
-
-const DEMO_API_BASE = 'http://localhost:4000/server'
-
-/**
- * Step 1 — LeetCode: Check username exists + get problem link + startTime
- * GET /check-username/:username
+/* ── Platform ownership verification (main backend) ──
+ *
+ * Two-step proof: (1) start — get target problem + startTime,
+ * (2) check — after the user submits on the real platform, we scan their
+ * recent submissions for an Accepted submission to the target problem
+ * with timestamp >= startTime. Endpoints are authenticated (onboarding
+ * happens post-login anyway).
  */
+
+/** Step 1 — confirm handle exists and receive the target problem. */
+export async function verifyStart(platform, handle) {
+    const r = await authFetchJson('/api/verify/start', {
+        method: 'POST',
+        body: JSON.stringify({ platform, handle }),
+    })
+    if (r.ok) {
+        return {
+            success: true,
+            data: {
+                problemSlug: r.data.problemSlug,
+                problemName: r.data.problemName,
+                problemUrl:  r.data.problemUrl,
+                startTime:   r.data.startTime,
+            },
+        }
+    }
+    return { success: false, message: r.error || 'Verification failed to start' }
+}
+
+/** Step 2 — confirm the user submitted the target problem after startTime. */
+export async function verifyCheck(platform, handle, problemSlug, startTime) {
+    const r = await authFetchJson('/api/verify/check', {
+        method: 'POST',
+        body: JSON.stringify({ platform, handle, problemSlug, startTime }),
+    })
+    if (r.ok && r.data.verified) return { success: true }
+    return {
+        success: false,
+        message: (r.data && r.data.message) || r.error ||
+                 "Couldn't find your submission yet. Try again after you submit.",
+    }
+}
+
+/* ── Legacy shims for older callers.
+ * The demo-backend-on-port-4000 flow is gone; these forward to the
+ * main-backend verifyStart/verifyCheck with the same call signatures
+ * the old onboarding code expected. Safe to delete any time. */
 export async function initiateLeetCodeVerification(username) {
-    const res = await fetch(`${DEMO_API_BASE}/leetcode/check-username/${encodeURIComponent(username)}`)
-    return res.json()
+    return verifyStart('leetcode', username)
 }
-
-/**
- * Step 2 — LeetCode: Check if user submitted 'Create Hello World Function' after startTime
- * POST /check-submission { username, startTime }
- */
 export async function checkLeetCodeSubmission(username, startTime) {
-    const res = await fetch(`${DEMO_API_BASE}/leetcode/check-submission`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, startTime }),
-    })
-    return res.json()
+    return verifyCheck('leetcode', username, 'two-sum', startTime)
 }
-
-/**
- * Step 1 — Codeforces: Check handle exists + get problem link + startTime
- * GET /check-handle/:handle
- */
 export async function initiateCodeforcesVerification(handle) {
-    const res = await fetch(`${DEMO_API_BASE}/codeforces/check-handle/${encodeURIComponent(handle)}`)
-    return res.json()
+    return verifyStart('codeforces', handle)
 }
-
-/**
- * Step 2 — Codeforces: Check if user submitted '4A - Watermelon' after startTime
- * POST /check-submission { handle, startTime }
- */
 export async function checkCodeforcesSubmission(handle, startTime) {
-    const res = await fetch(`${DEMO_API_BASE}/codeforces/check-submission`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle, startTime }),
-    })
-    return res.json()
+    return verifyCheck('codeforces', handle, '4-A', startTime)
 }
 
 /* ── Demo Backend — LeetCode Data API calls ── */
@@ -183,7 +205,7 @@ export async function fetchCodeforces(handle) {
 
 /* ── Authentication API calls ── */
 
-/** Register a new user */
+/** Register a new user — legacy direct path, kept for backward-compat. */
 export async function register(name, email, password) {
     const res = await fetch(`${API_BASE}/auth/addNewUser`, {
         method: 'POST',
@@ -193,6 +215,101 @@ export async function register(name, email, password) {
     const data = await res.text()
     if (res.ok && name) setUserName(name)
     return { success: res.ok, data, status: res.status }
+}
+
+/* ── Email-verified signup (two-step) ── */
+
+/**
+ * Step 1 — send an OTP to the user's email (name + @username + email + password).
+ *
+ * If the backend has verification disabled (feature flag off for dev /
+ * pre-domain-verification), the response will include a JWT directly and
+ * the frontend should skip the OTP step. We detect that here and stash
+ * the auth tokens immediately, mirroring what signupVerify does.
+ */
+export async function signupRequest(name, username, email, password) {
+    try {
+        const res = await fetch(`${API_BASE}/auth/signup/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, username, email, password }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok) {
+            // Verification-disabled fast-path: backend already created the
+            // account and handed us a token. Log in locally.
+            if (data.token) {
+                setJWTToken(data.token)
+                setUserEmail(data.email || email)
+                if (data.name)     setUserName(data.name)
+                if (data.username) setUsername(data.username)
+            }
+            return { ok: true, data }
+        }
+        return { ok: false, error: data.error || 'Could not send verification code' }
+    } catch (e) {
+        return { ok: false, error: 'Cannot connect to server. Please try again.' }
+    }
+}
+
+/** Live check: is this @username free to grab? (public, no auth required) */
+export async function checkUsernameAvailable(u) {
+    try {
+        const res = await fetch(`${API_BASE}/auth/username/check?u=${encodeURIComponent(u)}`)
+        if (res.ok) return res.json()
+        return { available: false, reason: 'Couldn\'t check right now' }
+    } catch (e) {
+        return { available: false, reason: 'Couldn\'t check right now' }
+    }
+}
+
+/** Change the logged-in user's @username. */
+export async function updateMyUsername(username) {
+    return authFetchJson('/auth/me/username', {
+        method: 'PUT',
+        body: JSON.stringify({ username }),
+    })
+}
+
+/** Resend the OTP for an in-flight signup (respects server-side cooldown). */
+export async function signupResend(email) {
+    try {
+        const res = await fetch(`${API_BASE}/auth/signup/resend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok) return { ok: true, data }
+        return { ok: false, error: data.error || 'Could not resend code' }
+    } catch (e) {
+        return { ok: false, error: 'Cannot connect to server. Please try again.' }
+    }
+}
+
+/**
+ * Step 2 — verify the OTP. On success, the backend creates the account and
+ * returns a JWT so we can drop the user straight into the app.
+ */
+export async function signupVerify(email, otp) {
+    try {
+        const res = await fetch(`${API_BASE}/auth/signup/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.token) {
+            setJWTToken(data.token)
+            setUserEmail(data.email || email)
+            if (data.name) setUserName(data.name)
+            if (data.username) setUsername(data.username)
+            return { ok: true, data }
+        }
+        return { ok: false, error: data.error || 'Verification failed' }
+    } catch (e) {
+        return { ok: false, error: 'Cannot connect to server. Please try again.' }
+    }
 }
 
 /** Login user and get JWT token */
@@ -207,7 +324,7 @@ export async function login(email, password) {
             const token = await res.text()
             setJWTToken(token)
             setUserEmail(email)
-            // Fetch user's name from backend
+            // Fetch user's name + profile pic from backend
             try {
                 const meRes = await fetch(`${API_BASE}/auth/me`, {
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -215,8 +332,14 @@ export async function login(email, password) {
                 if (meRes.ok) {
                     const me = await meRes.json()
                     if (me.name) setUserName(me.name)
+                    setUsername(me.username || '')
+                    // Mirror backend pic into local cache (or clear if null)
+                    try {
+                        const mod = await import('../utils/profilePic')
+                        mod.setProfilePic(me.profilePic || null)
+                    } catch { /* ignore */ }
                 }
-            } catch (_) { /* name fetch is best-effort */ }
+            } catch (_) { /* name+pic fetch is best-effort */ }
             return { success: true, token, email }
         } else {
             const error = await res.text()
@@ -254,6 +377,34 @@ export async function changePassword(currentPassword, newPassword) {
 /** Permanently delete the authenticated user's account */
 export async function deleteAccount() {
     return authFetchJson('/auth/me', { method: 'DELETE' })
+}
+
+/** Upload a new profile picture (base64 data URL). */
+export async function updateProfilePicture(dataUrl) {
+    return authFetchJson('/auth/me/picture', {
+        method: 'PUT',
+        body: JSON.stringify({ profilePic: dataUrl }),
+    })
+}
+
+/** Remove the authenticated user's profile picture. */
+export async function removeProfilePicture() {
+    return authFetchJson('/auth/me/picture', { method: 'DELETE' })
+}
+
+/* ── Notification preferences ── */
+
+/** Fetch the user's reminder email preferences. */
+export async function fetchNotificationPrefs() {
+    return authFetchJson('/auth/me/notifications')
+}
+
+/** Save { enabled, reminderTime 'HH:mm', reminderTimezone 'Area/City' }. */
+export async function updateNotificationPrefs(prefs) {
+    return authFetchJson('/auth/me/notifications', {
+        method: 'PUT',
+        body: JSON.stringify(prefs),
+    })
 }
 
 /* ── Platform linking (stored in DB via backend) ── */
@@ -377,9 +528,17 @@ export async function fetchLeetCodeSubmissions(username) {
    CHALLENGE / CONTEST APIs
 ───────────────────────────────────────────── */
 
-export async function createChallenge(opponentEmail, contestType, customCounts = {}) {
+/**
+ * Create a challenge. First arg accepts either:
+ *   - a string (legacy: opponent's email address), or
+ *   - an object (preferred): { opponentUsername } or { opponentEmail }
+ */
+export async function createChallenge(opponent, contestType, customCounts = {}) {
     try {
-        const body = { opponentEmail, contestType, ...customCounts }
+        const ref = typeof opponent === 'string'
+            ? { opponentEmail: opponent }
+            : (opponent || {})
+        const body = { ...ref, contestType, ...customCounts }
         const res = await authFetch('/challenges', {
             method: 'POST',
             body: JSON.stringify(body),
@@ -483,6 +642,18 @@ export async function deletePost(id) {
 export async function fetchMyPosts() {
     return authFetchJson('/api/posts/mine')
 }
+
+/* ── Save posts ── */
+export async function savePost(id)    { return authFetchJson(`/api/posts/${id}/save`, { method: 'POST' }) }
+export async function unsavePost(id)  { return authFetchJson(`/api/posts/${id}/save`, { method: 'DELETE' }) }
+export async function fetchSavedPosts() { return authFetchJson('/api/posts/saved') }
+
+/* ── Follow graph ── */
+export async function followUser(username)   { return authFetchJson(`/api/follow/${encodeURIComponent(username)}`, { method: 'POST' }) }
+export async function unfollowUser(username) { return authFetchJson(`/api/follow/${encodeURIComponent(username)}`, { method: 'DELETE' }) }
+export async function fetchFollowStatus(username) { return authFetchJson(`/api/follow/status/${encodeURIComponent(username)}`) }
+export async function fetchFollowers(username)    { return authFetchJson(`/api/follow/${encodeURIComponent(username)}/followers`) }
+export async function fetchFollowing(username)    { return authFetchJson(`/api/follow/${encodeURIComponent(username)}/following`) }
 
 // ── Recommendations ────────────────────────────────────────────────────────────
 export async function completeDailyMission() {

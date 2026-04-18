@@ -9,7 +9,7 @@ const PRESETS = {
     BEGINNER: { label: 'Beginner', color: '#22C55E', easy: 2, medium: 1, hard: 0, mins: 30 },
     MEDIUM:   { label: 'Balanced', color: '#F59E0B', easy: 1, medium: 3, hard: 1, mins: 45 },
     HARD:     { label: 'Hard',     color: '#EF4444', easy: 0, medium: 2, hard: 3, mins: 60 },
-    CUSTOM:   { label: 'Custom',   color: '#A78BFA', easy: 0, medium: 0, hard: 0, mins: 0  },
+    CUSTOM:   { label: 'Custom',   color: '#9F8FE3', easy: 0, medium: 0, hard: 0, mins: 0  },
 }
 
 function calcMins(e, m, h) { return Math.max(10, e * 10 + m * 15 + h * 20) }
@@ -41,7 +41,7 @@ function timeAgo(iso) {
 const STATUS_META = {
     PENDING:   { color: '#F59E0B', label: 'Pending',  dot: '⏳' },
     ACTIVE:    { color: '#22C55E', label: 'Live',     dot: '🟢' },
-    COMPLETED: { color: '#6366F1', label: 'Done',     dot: '✅' },
+    COMPLETED: { color: '#E5A653', label: 'Done',     dot: '✅' },
     EXPIRED:   { color: '#64748B', label: 'Expired',  dot: '💤' },
     DECLINED:  { color: '#EF4444', label: 'Declined', dot: '❌' },
 }
@@ -101,7 +101,7 @@ function CustomInputs({ value, onChange }) {
 function SectionLabel({ n, children }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(99,102,241,.2)', border: '1px solid rgba(99,102,241,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#818CF8', flexShrink: 0 }}>{n}</div>
+            <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(229,166,83,.2)', border: '1px solid rgba(229,166,83,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#9F8FE3', flexShrink: 0 }}>{n}</div>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.07em' }}>{children}</span>
         </div>
     )
@@ -128,13 +128,20 @@ function DuelSetup({ onBack, onSuccess, myEmail }) {
 
     async function handleSubmit(e) {
         e.preventDefault()
-        if (!opponent.trim()) { setError('Enter your opponent\'s email'); return }
+        const handle = opponent.trim().toLowerCase().replace(/^@/, '')
+        if (!handle) { setError("Enter your opponent's @username"); return }
+        if (!/^[a-z0-9_]{3,30}$/.test(handle)) {
+            setError('Invalid username — 3–30 chars, letters/digits/underscore only')
+            return
+        }
         if (preset === 'CUSTOM' && custom.easy + custom.medium + custom.hard === 0) {
             setError('Add at least one problem'); return
         }
         setLoading(true); setError('')
         const counts = preset === 'CUSTOM' ? { easyCount: custom.easy, mediumCount: custom.medium, hardCount: custom.hard } : {}
-        const r = await api.createChallenge(opponent.trim(), preset, counts)
+        // Call createChallenge by @username (second positional arg is the
+        // preset, which api.js forwards as contestType).
+        const r = await api.createChallenge({ opponentUsername: handle }, preset, counts)
         setLoading(false)
         if (r.success) { setSuccess(r.data) }
         else { setError(r.error) }
@@ -151,7 +158,7 @@ function DuelSetup({ onBack, onSuccess, myEmail }) {
                         Duel <strong style={{ color: '#F1F5F9' }}>#{success.id}</strong> sent to <strong style={{ color: '#F1F5F9' }}>{success.opponentName || success.opponentId}</strong>.<br />Waiting for them to accept.
                     </div>
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button onClick={() => navigate(`/contest/${success.id}`)} style={{ background: 'rgba(99,102,241,.15)', border: '1px solid rgba(99,102,241,.3)', color: '#818CF8', padding: '9px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>View Duel →</button>
+                        <button onClick={() => navigate(`/contest/${success.id}`)} style={{ background: 'rgba(229,166,83,.15)', border: '1px solid rgba(229,166,83,.3)', color: '#9F8FE3', padding: '9px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>View Duel →</button>
                         <button onClick={() => { setSuccess(null); onBack() }} style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', color: '#64748B', padding: '9px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Back to Challenges</button>
                     </div>
                 </div>
@@ -177,15 +184,29 @@ function DuelSetup({ onBack, onSuccess, myEmail }) {
                 <div>
                     <SectionLabel n={1}>Who are you challenging?</SectionLabel>
                     <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none' }}>✉️</span>
+                        <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none', color: 'var(--amber)', fontWeight: 700 }}>@</span>
                         <input
-                            type="email" required value={opponent}
-                            onChange={e => setOpponent(e.target.value)}
-                            placeholder="opponent@email.com"
-                            style={{ width: '100%', padding: '12px 14px 12px 44px', borderRadius: 12, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.1)', color: '#F1F5F9', fontSize: 14, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }}
-                            onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.5)'}
+                            type="text"
+                            required
+                            value={opponent}
+                            onChange={e => {
+                                // Strip @ prefix + illegal chars + force lowercase as they type —
+                                // mirrors the signup field so wrong input can't even get typed in.
+                                const v = e.target.value.toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '')
+                                setOpponent(v)
+                            }}
+                            autoComplete="off"
+                            autoCapitalize="off"
+                            spellCheck={false}
+                            maxLength={30}
+                            placeholder="their_handle"
+                            style={{ width: '100%', padding: '12px 14px 12px 36px', borderRadius: 12, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.1)', color: '#F1F5F9', fontSize: 14, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }}
+                            onFocus={e => e.target.style.borderColor = 'rgba(229,166,83,.5)'}
                             onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.1)'}
                         />
+                    </div>
+                    <div className="accent-hand" style={{ marginTop: 6, fontSize: 14, color: 'var(--text-muted)' }}>
+                        their AlgoLedger username — not their email
                     </div>
                 </div>
 
@@ -202,7 +223,7 @@ function DuelSetup({ onBack, onSuccess, myEmail }) {
                 </div>
 
                 {/* Submit */}
-                <button type="submit" disabled={loading} style={{ background: loading ? 'rgba(99,102,241,.35)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '13px 28px', borderRadius: 12, fontWeight: 800, fontSize: 14.5, cursor: loading ? 'not-allowed' : 'pointer', boxShadow: loading ? 'none' : '0 6px 22px rgba(99,102,241,.45)', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="submit" disabled={loading} style={{ background: loading ? 'rgba(229,166,83,.35)' : 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', border: 'none', padding: '13px 28px', borderRadius: 12, fontWeight: 800, fontSize: 14.5, cursor: loading ? 'not-allowed' : 'pointer', boxShadow: loading ? 'none' : '0 6px 22px rgba(229,166,83,.45)', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {loading ? <><Spin /> Sending…</> : '⚔️ Send Duel Invite'}
                 </button>
             </form>
@@ -256,7 +277,7 @@ function ContestSetup({ onBack }) {
                         value={name} onChange={e => setName(e.target.value)}
                         placeholder="e.g. Friday Night Grind, Team Qualifier…"
                         style={{ width: '100%', padding: '11px 14px', borderRadius: 11, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.1)', color: '#F1F5F9', fontSize: 13.5, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }}
-                        onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.5)'}
+                        onFocus={e => e.target.style.borderColor = 'rgba(229,166,83,.5)'}
                         onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.1)'}
                     />
                 </div>
@@ -272,7 +293,7 @@ function ContestSetup({ onBack }) {
                                     onChange={e => updateEmail(i, e.target.value)}
                                     placeholder={`Participant ${i + 1} email`}
                                     style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(255,255,255,.08)', color: '#F1F5F9', fontSize: 13, outline: 'none', transition: 'border-color .2s' }}
-                                    onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,.4)'}
+                                    onFocus={e => e.target.style.borderColor = 'rgba(229,166,83,.4)'}
                                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.08)'}
                                 />
                                 {emails.length > 1 && (
@@ -280,7 +301,7 @@ function ContestSetup({ onBack }) {
                                 )}
                             </div>
                         ))}
-                        <button type="button" onClick={addEmail} style={{ alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 9, background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', color: '#818CF8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        <button type="button" onClick={addEmail} style={{ alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 9, background: 'rgba(229,166,83,.08)', border: '1px solid rgba(229,166,83,.2)', color: '#9F8FE3', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                             + Add participant
                         </button>
                     </div>
@@ -291,7 +312,7 @@ function ContestSetup({ onBack }) {
                         <input
                             type="number" min={2} max={50} value={maxPeople}
                             onChange={e => setMaxPeople(Math.min(50, Math.max(2, Number(e.target.value) || 2)))}
-                            style={{ width: 64, padding: '6px 10px', borderRadius: 8, border: '1.5px solid rgba(99,102,241,.3)', background: 'rgba(99,102,241,.08)', color: '#818CF8', fontSize: 15, fontWeight: 800, textAlign: 'center', outline: 'none' }}
+                            style={{ width: 64, padding: '6px 10px', borderRadius: 8, border: '1.5px solid rgba(229,166,83,.3)', background: 'rgba(229,166,83,.08)', color: '#9F8FE3', fontSize: 15, fontWeight: 800, textAlign: 'center', outline: 'none' }}
                         />
                         <span style={{ fontSize: 11, color: '#475569' }}>people can join via link</span>
                     </div>
@@ -311,13 +332,13 @@ function ContestSetup({ onBack }) {
 
                 {/* Invite link display */}
                 {inviteLink && (
-                    <div style={{ background: 'rgba(99,102,241,.06)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 14, padding: '18px 20px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#818CF8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>🔗 Invite Link</div>
+                    <div style={{ background: 'rgba(229,166,83,.06)', border: '1px solid rgba(229,166,83,.2)', borderRadius: 14, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9F8FE3', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>🔗 Invite Link</div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <div style={{ flex: 1, padding: '9px 14px', borderRadius: 9, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', fontSize: 12, color: '#94A3B8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {inviteLink}
                             </div>
-                            <button type="button" onClick={copyLink} style={{ padding: '9px 16px', borderRadius: 9, background: copied ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', border: `1px solid ${copied ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.3)'}`, color: copied ? '#22C55E' : '#818CF8', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            <button type="button" onClick={copyLink} style={{ padding: '9px 16px', borderRadius: 9, background: copied ? 'rgba(34,197,94,.15)' : 'rgba(229,166,83,.15)', border: `1px solid ${copied ? 'rgba(34,197,94,.3)' : 'rgba(229,166,83,.3)'}`, color: copied ? '#22C55E' : '#9F8FE3', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 {copied ? '✓ Copied' : 'Copy'}
                             </button>
                         </div>
@@ -327,7 +348,7 @@ function ContestSetup({ onBack }) {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <button type="button" onClick={generateLink} style={{ padding: '11px 22px', borderRadius: 11, background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.25)', color: '#818CF8', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    <button type="button" onClick={generateLink} style={{ padding: '11px 22px', borderRadius: 11, background: 'rgba(229,166,83,.12)', border: '1px solid rgba(229,166,83,.25)', color: '#9F8FE3', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                         🔗 {inviteLink ? 'Regenerate Link' : 'Generate Invite Link'}
                     </button>
                     <button type="submit" style={{ padding: '11px 26px', borderRadius: 11, background: 'linear-gradient(135deg,#F59E0B,#EF4444)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 6px 20px rgba(245,158,11,.35)' }}>
@@ -497,7 +518,7 @@ export default function ChallengePage() {
                     { label: 'Wins',   value: stats.wins,    color: '#22C55E', icon: '🏆' },
                     { label: 'Losses', value: stats.losses,  color: '#EF4444', icon: '😔' },
                     { label: 'Active', value: stats.pending, color: '#F59E0B', icon: '⚔️' },
-                    { label: 'Total',  value: stats.total,   color: '#6366F1', icon: '📊' },
+                    { label: 'Total',  value: stats.total,   color: '#E5A653', icon: '📊' },
                 ].map(s => (
                     <div key={s.label} style={{ background: `${s.color}08`, border: `1px solid ${s.color}20`, borderRadius: 13, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 36, height: 36, borderRadius: 9, background: `${s.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{s.icon}</div>
@@ -513,14 +534,14 @@ export default function ChallengePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 32 }}>
 
                 {/* Duel card */}
-                <div onClick={() => setView('duel')} style={{ borderRadius: 18, padding: '28px 28px', background: 'linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.08))', border: '1px solid rgba(99,102,241,.25)', cursor: 'pointer', transition: 'all .2s', position: 'relative', overflow: 'hidden' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(99,102,241,.2)' }}
+                <div onClick={() => setView('duel')} style={{ borderRadius: 18, padding: '28px 28px', background: 'linear-gradient(135deg,rgba(229,166,83,.12),rgba(159,143,227,.08))', border: '1px solid rgba(229,166,83,.25)', cursor: 'pointer', transition: 'all .2s', position: 'relative', overflow: 'hidden' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(229,166,83,.2)' }}
                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
-                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'radial-gradient(circle,rgba(99,102,241,.15),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'radial-gradient(circle,rgba(229,166,83,.15),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
                     <div style={{ fontSize: 36, marginBottom: 14 }}>⚔️</div>
                     <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6, color: '#E2E8F0' }}>1v1 Duel</div>
                     <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.6, marginBottom: 18 }}>Challenge a friend head-to-head. Choose your format, pick your problems, fight.</div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
                         Get Ready for Duel →
                     </div>
                 </div>
@@ -546,7 +567,7 @@ export default function ChallengePage() {
                         ['mine', '📋 My Challenges'],
                         ['invitations', `📬 Invitations${pendingCount > 0 ? ` (${pendingCount})` : ''}`],
                     ].map(([k, l]) => (
-                        <button key={k} onClick={() => setHistTab(k)} style={{ padding: '6px 16px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: 'none', transition: 'all .18s', background: histTab === k ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'transparent', color: histTab === k ? '#fff' : '#64748B', boxShadow: histTab === k ? '0 3px 10px rgba(99,102,241,.35)' : 'none' }}>
+                        <button key={k} onClick={() => setHistTab(k)} style={{ padding: '6px 16px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: 'none', transition: 'all .18s', background: histTab === k ? 'linear-gradient(135deg,#E5A653,#9F8FE3)' : 'transparent', color: histTab === k ? '#fff' : '#64748B', boxShadow: histTab === k ? '0 3px 10px rgba(229,166,83,.35)' : 'none' }}>
                             {l}
                         </button>
                     ))}
@@ -594,8 +615,8 @@ export default function ChallengePage() {
 // ─── Shell wrapper (keeps sidebar + topbar consistent across views) ────────────
 function Shell({ title, subtitle, children }) {
     return (
-        <div className="app-shell" style={{ background: 'linear-gradient(135deg,#060818,#0b1029 50%,#06091a)' }}>
-            <div style={{ position: 'fixed', top: -200, right: -100, width: 600, height: 600, background: 'radial-gradient(circle,rgba(99,102,241,.07),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+        <div className="app-shell" style={{ background: 'linear-gradient(135deg,#0B0F1A,#121727 50%,#06091a)' }}>
+            <div style={{ position: 'fixed', top: -200, right: -100, width: 600, height: 600, background: 'radial-gradient(circle,rgba(229,166,83,.07),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
             <Sidebar />
             <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
                 <Topbar title={title} subtitle={subtitle} />

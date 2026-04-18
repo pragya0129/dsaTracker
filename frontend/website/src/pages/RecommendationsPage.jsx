@@ -14,11 +14,11 @@ function DiffBadge({ d }) {
     return <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: `${c}18`, color: c, border: `1px solid ${c}30` }}>{d}</span>
 }
 function PlatBadge({ p }) {
-    const [c, l] = PLAT_MAP[(p || '').toLowerCase()] || ['#6366F1', 'Unknown']
+    const [c, l] = PLAT_MAP[(p || '').toLowerCase()] || ['#E5A653', 'Unknown']
     return <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: `${c}15`, color: c, border: `1px solid ${c}25` }}>{l}</span>
 }
 function TopicBadge({ t }) {
-    return <span style={{ fontSize: 10, padding: '2px 9px', borderRadius: 20, background: 'rgba(99,102,241,.14)', color: '#818CF8', border: '1px solid rgba(99,102,241,.2)' }}>{t}</span>
+    return <span style={{ fontSize: 10, padding: '2px 9px', borderRadius: 20, background: 'rgba(229,166,83,.14)', color: '#9F8FE3', border: '1px solid rgba(229,166,83,.2)' }}>{t}</span>
 }
 
 function SkillBar({ topic, pct, solved, target, color }) {
@@ -68,8 +68,8 @@ export default function RecommendationsPage() {
     const rest = recs.slice(1)
 
     return (
-        <div className="app-shell" style={{ background: 'linear-gradient(140deg,#07091a,#0d1327 50%,#080c1a)' }}>
-            <div style={{ position: 'fixed', top: -200, right: -200, width: 500, height: 500, background: 'radial-gradient(circle,rgba(99,102,241,.07),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+        <div className="app-shell" style={{ background: 'linear-gradient(140deg,#0B0F1A,#121727 50%,#0B0F1A)' }}>
+            <div style={{ position: 'fixed', top: -200, right: -200, width: 500, height: 500, background: 'radial-gradient(circle,rgba(229,166,83,.07),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
             <Sidebar />
             <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
                 <Topbar title="Recommendations" subtitle={`Personalised for you · ${today}`} />
@@ -78,7 +78,7 @@ export default function RecommendationsPage() {
                     {error && <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 12, padding: '11px 16px', marginBottom: 16, color: '#EF4444', fontSize: 13 }}>⚠️ {error}</div>}
 
                     {loading && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 100, gap: 14 }}>
-                        <div style={{ width: 40, height: 40, border: '3px solid rgba(99,102,241,.2)', borderTop: '3px solid #6366F1', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+                        <div style={{ width: 40, height: 40, border: '3px solid rgba(229,166,83,.2)', borderTop: '3px solid #E5A653', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
                         <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Analysing your skill profile…</div>
                     </div>}
 
@@ -86,10 +86,10 @@ export default function RecommendationsPage() {
 
                         {/* ── Difficulty Progress Banner ── */}
                         {diff && (
-                            <div style={{ ...CARD, background: 'linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.06))', border: '1px solid rgba(99,102,241,.2)', marginBottom: 18 }}>
+                            <div style={{ ...CARD, background: 'linear-gradient(135deg,rgba(229,166,83,.12),rgba(159,143,227,.06))', border: '1px solid rgba(229,166,83,.2)', marginBottom: 18 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: 11, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🎯</div>
+                                        <div style={{ width: 44, height: 44, borderRadius: 11, background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🎯</div>
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                                                 <span style={{ fontSize: 14, fontWeight: 700 }}>Difficulty Target</span>
@@ -98,7 +98,7 @@ export default function RecommendationsPage() {
                                             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{diff.reason}</div>
                                         </div>
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#818CF8', maxWidth: 280, textAlign: 'right' }}>{diff.nextMilestone}</div>
+                                    <div style={{ fontSize: 11, color: '#9F8FE3', maxWidth: 280, textAlign: 'right' }}>{diff.nextMilestone}</div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 24, marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,.06)' }}>
                                     {[['Easy', diff.easyCount, '#22C55E'], ['Medium', diff.mediumCount, '#F59E0B'], ['Hard', diff.hardCount, '#EF4444']].map(([l, v, c]) => (
@@ -114,7 +114,7 @@ export default function RecommendationsPage() {
                         {/* ── Tabs ── */}
                         <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
                             {[['daily', '🎯 Daily Picks'], ['weak', '⚠️ Weak Topics'], ['skill', '📊 Skill Map']].map(([k, l]) => (
-                                <button key={k} onClick={() => setTab(k)} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: '1px solid', transition: 'all .2s', background: tab === k ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'rgba(255,255,255,.03)', color: tab === k ? '#fff' : 'var(--text-muted)', borderColor: tab === k ? 'transparent' : 'rgba(255,255,255,.08)' }}>{l}</button>
+                                <button key={k} onClick={() => setTab(k)} style={{ padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: '1px solid', transition: 'all .2s', background: tab === k ? 'linear-gradient(135deg,#E5A653,#9F8FE3)' : 'rgba(255,255,255,.03)', color: tab === k ? '#fff' : 'var(--text-muted)', borderColor: tab === k ? 'transparent' : 'rgba(255,255,255,.08)' }}>{l}</button>
                             ))}
                             <button onClick={load} style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>⟳ Refresh</button>
                         </div>
@@ -130,24 +130,24 @@ export default function RecommendationsPage() {
                             ) : (<>
                                 {/* Featured */}
                                 {featured && (
-                                    <div style={{ ...CARD, background: 'linear-gradient(135deg,rgba(99,102,241,.1),rgba(139,92,246,.05))', border: '1px solid rgba(99,102,241,.22)', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
-                                        <div style={{ position: 'absolute', top: -50, right: -50, width: 160, height: 160, background: 'radial-gradient(circle,rgba(99,102,241,.15),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+                                    <div style={{ ...CARD, background: 'linear-gradient(135deg,rgba(229,166,83,.1),rgba(159,143,227,.05))', border: '1px solid rgba(229,166,83,.22)', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
+                                        <div style={{ position: 'absolute', top: -50, right: -50, width: 160, height: 160, background: 'radial-gradient(circle,rgba(229,166,83,.15),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
                                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, position: 'relative', zIndex: 1 }}>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: 'rgba(99,102,241,.2)', color: '#818CF8', border: '1px solid rgba(99,102,241,.35)' }}>⭐ TOP PICK</span>
+                                                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: 'rgba(229,166,83,.2)', color: '#9F8FE3', border: '1px solid rgba(229,166,83,.35)' }}>⭐ TOP PICK</span>
                                                     <DiffBadge d={featured.difficulty} />
                                                     {featured.platform && <PlatBadge p={featured.platform} />}
                                                     {featured.topic && <TopicBadge t={featured.topic} />}
                                                 </div>
                                                 <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>{featured.title}</h3>
-                                                <div style={{ background: 'rgba(99,102,241,.1)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#94A3B8', lineHeight: 1.6 }}>
+                                                <div style={{ background: 'rgba(229,166,83,.1)', border: '1px solid rgba(229,166,83,.2)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#94A3B8', lineHeight: 1.6 }}>
                                                     💡 {featured.reason}
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
                                                 {featured.problemUrl ? (
-                                                    <a href={featured.problemUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', padding: '11px 24px', borderRadius: 11, fontWeight: 700, fontSize: 13, textDecoration: 'none', boxShadow: '0 4px 16px rgba(99,102,241,.4)', textAlign: 'center' }}>Solve Now →</a>
+                                                    <a href={featured.problemUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', padding: '11px 24px', borderRadius: 11, fontWeight: 700, fontSize: 13, textDecoration: 'none', boxShadow: '0 4px 16px rgba(229,166,83,.4)', textAlign: 'center' }}>Solve Now →</a>
                                                 ) : null}
                                                 <button onClick={load} style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', color: 'var(--text-muted)', padding: '9px 18px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>↻ New suggestion</button>
                                             </div>
@@ -160,7 +160,7 @@ export default function RecommendationsPage() {
                                     {rest.map((rec, i) => (
                                         <div key={i} style={{ ...CARD, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', transition: 'all .2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateX(4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
-                                                <div style={{ width: 34, height: 34, borderRadius: 9, background: `${DIFF_COLOR[rec.difficulty] || '#6366F1'}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, color: DIFF_COLOR[rec.difficulty] || '#6366F1', flexShrink: 0 }}>#{i + 2}</div>
+                                                <div style={{ width: 34, height: 34, borderRadius: 9, background: `${DIFF_COLOR[rec.difficulty] || '#E5A653'}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, color: DIFF_COLOR[rec.difficulty] || '#E5A653', flexShrink: 0 }}>#{i + 2}</div>
                                                 <div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4, flexWrap: 'wrap' }}>
                                                         <span style={{ fontSize: 13, fontWeight: 700 }}>{rec.title}</span>
@@ -171,7 +171,7 @@ export default function RecommendationsPage() {
                                                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>💡 {rec.reason}</div>
                                                 </div>
                                             </div>
-                                            {rec.problemUrl && <a href={rec.problemUrl} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(99,102,241,.15)', border: '1px solid rgba(99,102,241,.3)', color: '#818CF8', padding: '7px 16px', borderRadius: 9, fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap', transition: 'all .2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,.25)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,.15)'}>Solve →</a>}
+                                            {rec.problemUrl && <a href={rec.problemUrl} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(229,166,83,.15)', border: '1px solid rgba(229,166,83,.3)', color: '#9F8FE3', padding: '7px 16px', borderRadius: 9, fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap', transition: 'all .2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(229,166,83,.25)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(229,166,83,.15)'}>Solve →</a>}
                                         </div>
                                     ))}
                                 </div>
@@ -193,7 +193,7 @@ export default function RecommendationsPage() {
                                             <div style={{ height: '100%', width: `${w.pct}%`, background: w.pct < 30 ? '#EF4444' : w.pct < 60 ? '#F59E0B' : '#22C55E', borderRadius: 10, transition: 'width 1s ease' }} />
                                         </div>
                                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>{w.solved} / {w.target} problems · {w.reason}</div>
-                                        <button onClick={() => setTab('daily')} style={{ width: '100%', background: 'rgba(99,102,241,.15)', border: '1px solid rgba(99,102,241,.3)', color: '#818CF8', padding: '8px', borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Get {w.topic} problems →</button>
+                                        <button onClick={() => setTab('daily')} style={{ width: '100%', background: 'rgba(229,166,83,.15)', border: '1px solid rgba(229,166,83,.3)', color: '#9F8FE3', padding: '8px', borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Get {w.topic} problems →</button>
                                     </div>
                                 ))}
                             </div>
@@ -223,12 +223,12 @@ export default function RecommendationsPage() {
                                                     </div>
                                                 </div>
                                             ))}
-                                            <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 10, fontSize: 11, color: '#818CF8', lineHeight: 1.6 }}>{diff.nextMilestone}</div>
+                                            <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(229,166,83,.08)', border: '1px solid rgba(229,166,83,.2)', borderRadius: 10, fontSize: 11, color: '#9F8FE3', lineHeight: 1.6 }}>{diff.nextMilestone}</div>
                                         </div>
                                     )}
                                     <div style={CARD}>
                                         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Legend</div>
-                                        {[['< 30%', 'Critical — urgent practice needed', '#EF4444'], ['30–60%', 'Developing — keep going', '#F59E0B'], ['60–80%', 'Solid — approaching mastery', '#22C55E'], ['> 80%', 'Expert — challenge yourself', '#6366F1']].map(([r, l, c]) => (
+                                        {[['< 30%', 'Critical — urgent practice needed', '#EF4444'], ['30–60%', 'Developing — keep going', '#F59E0B'], ['60–80%', 'Solid — approaching mastery', '#22C55E'], ['> 80%', 'Expert — challenge yourself', '#E5A653']].map(([r, l, c]) => (
                                             <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                                                 <div style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />
                                                 <span style={{ fontSize: 11, fontWeight: 700, color: c, minWidth: 50 }}>{r}</span>

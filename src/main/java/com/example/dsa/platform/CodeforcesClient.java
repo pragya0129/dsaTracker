@@ -28,6 +28,51 @@ public class CodeforcesClient {
                 .build();
     }
 
+    /**
+     * Did this user submit <i>anything</i> to the given {@code contestId/index}
+     * problem after {@code startEpochSec}? Used by onboarding as proof of
+     * handle ownership. Submitting at all requires being logged into the
+     * account, so we don't care about the verdict — a wrong answer counts.
+     *
+     * <p>We cap the window at the most-recent 30 submissions, which is
+     * plenty for a check that happens seconds after the user submits.
+     */
+    public boolean hasSubmissionAfter(String handle, int contestId, String index, long startEpochSec) {
+        if (handle == null || index == null) return false;
+        try {
+            String raw = webClient.get()
+                    .uri("/user.status?handle={handle}&count=30", handle)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            JsonNode root = mapper.readTree(raw);
+            if (!"OK".equals(root.path("status").asText())) return false;
+
+            for (JsonNode sub : root.path("result")) {
+                if (sub.path("creationTimeSeconds").asLong() < startEpochSec) continue;
+                JsonNode prob = sub.path("problem");
+                if (prob.path("contestId").asInt(-1) != contestId) continue;
+                if (!index.equalsIgnoreCase(prob.path("index").asText())) continue;
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            log.warn("[CF] hasSubmissionAfter failed for {}: {}", handle, e.toString());
+            return false;
+        }
+    }
+
+    /**
+     * Cheap handle-existence probe: does {@code user.info} return a user?
+     * {@link #fetchUserInfo} already populates {@code friendOfCount} only
+     * when CF found the handle, so we reuse it as the presence marker.
+     */
+    public boolean userExists(String handle) {
+        if (handle == null || handle.isBlank()) return false;
+        return fetchUserInfo(handle).containsKey("friendOfCount");
+    }
+
     /** Fetch user info: rating, maxRating, rank, maxRank, contribution */
     public Map<String, Object> fetchUserInfo(String handle) {
         Map<String, Object> result = new LinkedHashMap<>();

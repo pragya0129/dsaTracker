@@ -7,10 +7,10 @@ import * as api from '../services/api'
 const TOPICS = ['all', 'arrays', 'graphs', 'dynamic-programming', 'trees', 'binary-search', 'system-design', 'interview-tips', 'strings', 'backtracking']
 
 const TOPIC_COLORS = {
-    'arrays':              ['#6366F1', '#818CF8'],
+    'arrays':              ['#E5A653', '#9F8FE3'],
     'graphs':              ['#10B981', '#34D399'],
     'dynamic-programming': ['#F59E0B', '#FCD34D'],
-    'trees':               ['#8B5CF6', '#A78BFA'],
+    'trees':               ['#9F8FE3', '#9F8FE3'],
     'binary-search':       ['#3B82F6', '#60A5FA'],
     'system-design':       ['#EC4899', '#F472B6'],
     'interview-tips':      ['#14B8A6', '#2DD4BF'],
@@ -52,6 +52,8 @@ function PostCard({ post, onLike, onDelete, myEmail, onOpen }) {
     const [liking, setLiking] = useState(false)
     const [liked, setLiked] = useState(post.likedByMe)
     const [likes, setLikes] = useState(post.likeCount)
+    const [saved, setSaved] = useState(post.savedByMe)
+    const [savingPost, setSavingPost] = useState(false)
     const [c1, c2] = topicColor(post.topic)
     const isOwner = myEmail && post.userId === myEmail
 
@@ -61,6 +63,18 @@ function PostCard({ post, onLike, onDelete, myEmail, onOpen }) {
         const r = await onLike(post.id)
         if (r.ok) { setLiked(r.data.liked); setLikes(r.data.likeCount) }
         setLiking(false)
+    }
+
+    async function handleSave(e) {
+        e.stopPropagation()
+        if (savingPost) return
+        setSavingPost(true)
+        // optimistic
+        const next = !saved
+        setSaved(next)
+        const r = next ? await api.savePost(post.id) : await api.unsavePost(post.id)
+        if (!r.ok) setSaved(!next) // roll back
+        setSavingPost(false)
     }
 
     return (
@@ -87,7 +101,10 @@ function PostCard({ post, onLike, onDelete, myEmail, onOpen }) {
                         </div>
                         <div>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#E2E8F0' }}>{post.authorName || post.userId}</div>
-                            <div style={{ fontSize: 10, color: '#64748B' }}>{timeAgo(post.createdAt)} · {readTime(post.content)} min read</div>
+                            <div style={{ fontSize: 10, color: '#64748B' }}>
+                                {post.authorUsername && <span style={{ color: 'var(--amber)', fontWeight: 600 }}>@{post.authorUsername} · </span>}
+                                {timeAgo(post.createdAt)} · {readTime(post.content)} min read
+                            </div>
                         </div>
                     </div>
                     <TopicTag t={post.topic} small />
@@ -103,9 +120,14 @@ function PostCard({ post, onLike, onDelete, myEmail, onOpen }) {
 
                 {/* Footer */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 'auto' }}>
-                    <button onClick={handleLike} disabled={liking} style={{ background: 'none', border: 'none', cursor: 'pointer', color: liked ? '#EF4444' : '#475569', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, padding: 0, transition: 'all .2s' }}>
-                        {liked ? '❤️' : '🤍'} {likes}
-                    </button>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                        <button onClick={handleLike} disabled={liking} style={{ background: 'none', border: 'none', cursor: 'pointer', color: liked ? '#EF4444' : '#475569', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, padding: 0, transition: 'all .2s' }}>
+                            {liked ? '❤️' : '🤍'} {likes}
+                        </button>
+                        <button onClick={handleSave} disabled={savingPost} title={saved ? 'Saved' : 'Save'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: saved ? 'var(--amber)' : '#475569', fontSize: 14, padding: 0, transition: 'color .2s' }}>
+                            {saved ? '🔖' : '📑'}
+                        </button>
+                    </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <span style={{ fontSize: 11.5, color: c1, fontWeight: 700 }}>Read →</span>
                         {isOwner && (
@@ -122,7 +144,11 @@ function PostCard({ post, onLike, onDelete, myEmail, onOpen }) {
 function PostView({ post, onBack, onLike, myEmail }) {
     const [liked, setLiked] = useState(post.likedByMe)
     const [likes, setLikes] = useState(post.likeCount)
+    const [saved, setSaved] = useState(post.savedByMe)
+    const [following, setFollowing] = useState(false)
+    const [followBusy, setFollowBusy] = useState(false)
     const [c1, c2] = topicColor(post.topic)
+    const isMe = myEmail && post.userId === myEmail
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -131,9 +157,34 @@ function PostView({ post, onBack, onLike, myEmail }) {
         return () => window.removeEventListener('keydown', onKey)
     }, [onBack])
 
+    // Resolve initial follow state on mount when we know the author's @handle
+    useEffect(() => {
+        if (!post.authorUsername || isMe) return
+        api.fetchFollowStatus(post.authorUsername).then(r => {
+            if (r.ok) setFollowing(!!r.data.following)
+        })
+    }, [post.authorUsername, isMe])
+
     async function handleLike() {
         const r = await onLike(post.id)
         if (r.ok) { setLiked(r.data.liked); setLikes(r.data.likeCount) }
+    }
+
+    async function handleSave() {
+        const next = !saved
+        setSaved(next) // optimistic
+        const r = next ? await api.savePost(post.id) : await api.unsavePost(post.id)
+        if (!r.ok) setSaved(!next)
+    }
+
+    async function handleFollow() {
+        if (!post.authorUsername || followBusy) return
+        setFollowBusy(true)
+        const r = following
+            ? await api.unfollowUser(post.authorUsername)
+            : await api.followUser(post.authorUsername)
+        if (r.ok) setFollowing(!!r.data.following)
+        setFollowBusy(false)
     }
 
     const mins = readTime(post.content)
@@ -166,14 +217,45 @@ function PostView({ post, onBack, onLike, myEmail }) {
                     </div>
                     <div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: '#E2E8F0' }}>{post.authorName || post.userId}</div>
-                        <div style={{ fontSize: 12, color: '#64748B' }}>{timeAgo(post.createdAt)} · {mins} min read</div>
+                        <div style={{ fontSize: 12, color: '#64748B' }}>
+                            {post.authorUsername && <span style={{ color: 'var(--amber)', fontWeight: 600 }}>@{post.authorUsername} · </span>}
+                            {timeAgo(post.createdAt)} · {mins} min read
+                        </div>
                     </div>
+                    {/* Follow button — only for posts by someone else who has a @handle */}
+                    {post.authorUsername && !isMe && (
+                        <button
+                            onClick={handleFollow}
+                            disabled={followBusy}
+                            style={{
+                                marginLeft: 8,
+                                padding: '6px 14px',
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: followBusy ? 'wait' : 'pointer',
+                                border: following ? '1px solid var(--border)' : '1px solid var(--amber)',
+                                background: following ? 'transparent' : 'var(--amber-light)',
+                                color: following ? 'var(--text-secondary)' : 'var(--amber)',
+                                transition: 'all .2s',
+                            }}>
+                            {following ? 'Following' : '+ Follow'}
+                        </button>
+                    )}
                 </div>
 
-                {/* Like button */}
-                <button onClick={handleLike} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .2s', background: liked ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.05)', border: `1px solid ${liked ? 'rgba(239,68,68,.3)' : 'rgba(255,255,255,.1)'}`, color: liked ? '#EF4444' : '#94A3B8' }}>
-                    {liked ? '❤️' : '🤍'} {likes} {likes === 1 ? 'like' : 'likes'}
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={handleSave} title={saved ? 'Saved' : 'Save for later'}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                            background: saved ? 'var(--amber-light)' : 'rgba(255,255,255,.05)',
+                            border: `1px solid ${saved ? 'var(--border-hover)' : 'rgba(255,255,255,.1)'}`,
+                            color: saved ? 'var(--amber)' : '#94A3B8', transition: 'all .2s' }}>
+                        {saved ? '🔖 Saved' : '📑 Save'}
+                    </button>
+                    <button onClick={handleLike} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .2s', background: liked ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.05)', border: `1px solid ${liked ? 'rgba(239,68,68,.3)' : 'rgba(255,255,255,.1)'}`, color: liked ? '#EF4444' : '#94A3B8' }}>
+                        {liked ? '❤️' : '🤍'} {likes} {likes === 1 ? 'like' : 'likes'}
+                    </button>
+                </div>
             </div>
 
             {/* Content — proper blog typography */}
@@ -244,7 +326,7 @@ function WriteEditor({ onCancel, onPublished }) {
                             {preview ? '✏️ Edit' : '👁 Preview'}
                         </button>
                     )}
-                    <button onClick={handleSubmit} disabled={submitting || !form.title.trim() || !form.content.trim()} style={{ background: submitting ? 'rgba(99,102,241,.4)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (!form.title.trim() || !form.content.trim()) ? 0.4 : 1 }}>
+                    <button onClick={handleSubmit} disabled={submitting || !form.title.trim() || !form.content.trim()} style={{ background: submitting ? 'rgba(229,166,83,.4)' : 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (!form.title.trim() || !form.content.trim()) ? 0.4 : 1 }}>
                         {submitting ? 'Publishing…' : 'Publish Post'}
                     </button>
                 </div>
@@ -377,7 +459,7 @@ export default function CommunityPage() {
     // ── Write view ──
     if (view === 'write') {
         return (
-            <div className="app-shell" style={{ background: 'linear-gradient(140deg,#07091a,#0d1327 50%,#080c1a)' }}>
+            <div className="app-shell" style={{ background: 'linear-gradient(140deg,#0B0F1A,#121727 50%,#0B0F1A)' }}>
                 <Sidebar />
                 <div className="main-content">
                     <Topbar title="Write a Post" subtitle="Share your insight with the community" />
@@ -392,7 +474,7 @@ export default function CommunityPage() {
     // ── Post view ──
     if (view === 'post' && openPost) {
         return (
-            <div className="app-shell" style={{ background: 'linear-gradient(140deg,#07091a,#0d1327 50%,#080c1a)' }}>
+            <div className="app-shell" style={{ background: 'linear-gradient(140deg,#0B0F1A,#121727 50%,#0B0F1A)' }}>
                 <Sidebar />
                 <div className="main-content">
                     <Topbar title="Community" subtitle="Reading a post" />
@@ -406,8 +488,8 @@ export default function CommunityPage() {
 
     // ── Feed view ──
     return (
-        <div className="app-shell" style={{ background: 'linear-gradient(140deg,#07091a,#0d1327 50%,#080c1a)' }}>
-            <div style={{ position: 'fixed', top: -180, left: 60, width: 400, height: 400, background: 'radial-gradient(circle,rgba(99,102,241,.06),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+        <div className="app-shell" style={{ background: 'linear-gradient(140deg,#0B0F1A,#121727 50%,#0B0F1A)' }}>
+            <div style={{ position: 'fixed', top: -180, left: 60, width: 400, height: 400, background: 'radial-gradient(circle,rgba(229,166,83,.06),transparent 65%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
             <Sidebar />
             <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
                 <Topbar title="Community" subtitle="Insights and tips from fellow developers" />
@@ -417,12 +499,12 @@ export default function CommunityPage() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
                         <div style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,.03)', padding: 4, borderRadius: 12, border: '1px solid rgba(255,255,255,.06)' }}>
                             {[['feed', '📰 Feed'], ['mine', '✍️ My Posts']].map(([k, l]) => (
-                                <button key={k} onClick={() => setTab(k)} style={{ padding: '7px 18px', borderRadius: 9, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', border: 'none', transition: 'all .2s', background: tab === k ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'transparent', color: tab === k ? '#fff' : '#64748B', boxShadow: tab === k ? '0 3px 12px rgba(99,102,241,.35)' : 'none' }}>
+                                <button key={k} onClick={() => setTab(k)} style={{ padding: '7px 18px', borderRadius: 9, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', border: 'none', transition: 'all .2s', background: tab === k ? 'linear-gradient(135deg,#E5A653,#9F8FE3)' : 'transparent', color: tab === k ? '#fff' : '#64748B', boxShadow: tab === k ? '0 3px 12px rgba(229,166,83,.35)' : 'none' }}>
                                     {l}
                                 </button>
                             ))}
                         </div>
-                        <button onClick={openWrite} style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 16px rgba(99,102,241,.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button onClick={openWrite} style={{ background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 16px rgba(229,166,83,.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
                             ✏️ Write a Post
                         </button>
                     </div>
@@ -444,7 +526,7 @@ export default function CommunityPage() {
 
                         {loading && page === 0 && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 80, gap: 14 }}>
-                                <div style={{ width: 38, height: 38, border: '3px solid rgba(99,102,241,.2)', borderTop: '3px solid #6366F1', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+                                <div style={{ width: 38, height: 38, border: '3px solid rgba(229,166,83,.2)', borderTop: '3px solid #E5A653', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
                                 <div style={{ color: '#64748B', fontSize: 13 }}>Loading community feed…</div>
                             </div>
                         )}
@@ -454,7 +536,7 @@ export default function CommunityPage() {
                                 <div style={{ fontSize: 52, marginBottom: 16 }}>📝</div>
                                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#94A3B8' }}>No posts yet {topic !== 'all' ? `in "${topic}"` : ''}</div>
                                 <div style={{ fontSize: 13 }}>Be the first to share something!</div>
-                                <button onClick={openWrite} style={{ marginTop: 20, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 11, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Write a Post</button>
+                                <button onClick={openWrite} style={{ marginTop: 20, background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 11, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Write a Post</button>
                             </div>
                         )}
 
@@ -466,7 +548,7 @@ export default function CommunityPage() {
 
                         {hasNext && (
                             <div style={{ textAlign: 'center', marginTop: 28 }}>
-                                <button onClick={() => loadFeed(page + 1)} disabled={loading} style={{ background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.25)', color: '#818CF8', padding: '10px 32px', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                                <button onClick={() => loadFeed(page + 1)} disabled={loading} style={{ background: 'rgba(229,166,83,.12)', border: '1px solid rgba(229,166,83,.25)', color: '#9F8FE3', padding: '10px 32px', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                                     {loading ? 'Loading…' : 'Load more'}
                                 </button>
                             </div>
@@ -481,7 +563,7 @@ export default function CommunityPage() {
                                     <div style={{ fontSize: 52, marginBottom: 16 }}>✍️</div>
                                     <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#94A3B8' }}>No posts yet</div>
                                     <div style={{ fontSize: 13 }}>Share a tip, a walkthrough, or something that helped you crack a problem.</div>
-                                    <button onClick={openWrite} style={{ marginTop: 20, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 11, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Write your first post</button>
+                                    <button onClick={openWrite} style={{ marginTop: 20, background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 11, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Write your first post</button>
                                 </div>
                             )
                             : (

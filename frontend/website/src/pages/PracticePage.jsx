@@ -16,17 +16,17 @@ const PLAT_META = {
   geeksforgeeks: { color: '#308D46', label: 'GFG',     short: 'GFG', icon: '🟢' },
 }
 const CAT_META = {
-  mission:  { label: '🎯 Daily Mission',  color: '#8B5CF6', bg: 'rgba(139,92,246,.12)', glow: 'rgba(139,92,246,.35)', desc: 'Personalised for you today' },
+  mission:  { label: '🎯 Daily Mission',  color: '#9F8FE3', bg: 'rgba(159,143,227,.12)', glow: 'rgba(159,143,227,.35)', desc: 'Personalised for you today' },
   weakness: { label: '⚠️ Fix Weakness',  color: '#EF4444', bg: 'rgba(239,68,68,.10)',  glow: 'rgba(239,68,68,.30)', desc: 'Your critical gaps' },
   levelup:  { label: '📈 Level Up',       color: '#F59E0B', bg: 'rgba(245,158,11,.10)', glow: 'rgba(245,158,11,.30)', desc: 'Push past your comfort zone' },
   explore:  { label: '🔭 Explore',        color: '#38BDF8', bg: 'rgba(56,189,248,.10)', glow: 'rgba(56,189,248,.30)', desc: 'New territory for you' },
-  stretch:  { label: '💪 Stretch Goal',   color: '#6366F1', bg: 'rgba(99,102,241,.12)', glow: 'rgba(99,102,241,.35)', desc: 'One Hard problem per session' },
+  stretch:  { label: '💪 Stretch Goal',   color: '#E5A653', bg: 'rgba(229,166,83,.12)', glow: 'rgba(229,166,83,.35)', desc: 'One Hard problem per session' },
 }
 const STAGE_META = {
   BEGINNER:     { label: 'Beginner',     color: '#22C55E', icon: '🌱' },
   INTERMEDIATE: { label: 'Intermediate', color: '#F59E0B', icon: '⚡' },
   ADVANCED:     { label: 'Advanced',     color: '#EF4444', icon: '🔥' },
-  EXPERT:       { label: 'Expert',       color: '#8B5CF6', icon: '🏆' },
+  EXPERT:       { label: 'Expert',       color: '#9F8FE3', icon: '🏆' },
 }
 
 /* ─── small atoms ────────────────────────────────────────── */
@@ -67,38 +67,38 @@ function MissionCard({ mission, onComplete, completing }) {
 
   const diff  = DIFF_META[mission.difficulty]  || DIFF_META.Medium
   const platKey = (mission.platform || '').toLowerCase()
-  const plat  = PLAT_META[platKey] || { color: '#6366F1', label: mission.platform || 'Unknown', short: '?', icon: '⬡' }
+  const plat  = PLAT_META[platKey] || { color: '#E5A653', label: mission.platform || 'Unknown', short: '?', icon: '⬡' }
   const done  = mission.completed
 
   return (
     <div style={{
       position: 'relative', overflow: 'hidden', borderRadius: 20,
-      background: done ? 'rgba(34,197,94,.06)' : hovered ? 'rgba(139,92,246,.12)' : 'rgba(139,92,246,.06)',
-      border: `1px solid ${done ? '#22C55E44' : hovered ? '#8B5CF699' : '#8B5CF633'}`,
+      background: done ? 'rgba(34,197,94,.06)' : hovered ? 'rgba(159,143,227,.12)' : 'rgba(159,143,227,.06)',
+      border: `1px solid ${done ? '#22C55E44' : hovered ? '#9F8FE399' : '#9F8FE333'}`,
       padding: 24, marginBottom: 20,
       transition: 'all .22s ease',
-      boxShadow: done ? '0 0 24px rgba(34,197,94,.12)' : hovered ? '0 8px 40px rgba(139,92,246,.30)' : '0 2px 16px rgba(0,0,0,.25)',
+      boxShadow: done ? '0 0 24px rgba(34,197,94,.12)' : hovered ? '0 8px 40px rgba(159,143,227,.30)' : '0 2px 16px rgba(0,0,0,.25)',
     }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}>
 
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-        background: done ? 'linear-gradient(90deg,#22C55E,#16A34A)' : 'linear-gradient(90deg,#8B5CF6,#6366F1,#38BDF8)',
+        background: done ? 'linear-gradient(90deg,#22C55E,#16A34A)' : 'linear-gradient(90deg,#9F8FE3,#E5A653,#38BDF8)',
       }} />
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-            background: done ? 'linear-gradient(135deg,#22C55E,#16A34A)' : 'linear-gradient(135deg,#8B5CF6,#6366F1)',
+            background: done ? 'linear-gradient(135deg,#22C55E,#16A34A)' : 'linear-gradient(135deg,#9F8FE3,#E5A653)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
           }}>
             {done ? '✅' : '🎯'}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: done ? '#22C55E' : '#A78BFA', textTransform: 'uppercase', letterSpacing: 1 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: done ? '#22C55E' : '#9F8FE3', textTransform: 'uppercase', letterSpacing: 1 }}>
                 {done ? '✓ Completed' : '🎯 Daily Mission'}
               </span>
               {mission.sequence > 1 && (
@@ -124,7 +124,7 @@ function MissionCard({ mission, onComplete, completing }) {
 
       {mission.topic && (
         <div style={{ marginBottom: 14 }}>
-          <Chip color="#818CF8" bg="rgba(99,102,241,.12)">{mission.topic}</Chip>
+          <Chip color="#9F8FE3" bg="rgba(229,166,83,.12)">{mission.topic}</Chip>
         </div>
       )}
 
@@ -134,7 +134,7 @@ function MissionCard({ mission, onComplete, completing }) {
             onClick={() => window.open(mission.problemUrl, '_blank')}
             style={{
               padding: '10px 22px', borderRadius: 11, fontWeight: 800, fontSize: 13,
-              background: done ? 'rgba(34,197,94,.15)' : 'linear-gradient(135deg,#8B5CF6,#6366F1)',
+              background: done ? 'rgba(34,197,94,.15)' : 'linear-gradient(135deg,#9F8FE3,#E5A653)',
               color: done ? '#22C55E' : '#fff',
               border: done ? '1px solid #22C55E44' : 'none',
               cursor: 'pointer',
@@ -165,7 +165,7 @@ function ProblemCard({ problem, category, featured = false }) {
   const [hovered, setHovered] = useState(false)
   const diff = DIFF_META[problem.difficulty] || DIFF_META.Medium
   const platKey = (problem.platform || '').toLowerCase()
-  const plat = PLAT_META[platKey] || { color: '#6366F1', label: problem.platform || 'Unknown', short: '?', icon: '⬡' }
+  const plat = PLAT_META[platKey] || { color: '#E5A653', label: problem.platform || 'Unknown', short: '?', icon: '⬡' }
   const cat  = CAT_META[category] || CAT_META.levelup
 
   return (
@@ -195,7 +195,7 @@ function ProblemCard({ problem, category, featured = false }) {
         <Chip color={cat.color} bg={cat.bg}>{cat.label}</Chip>
         <Chip color={diff.color} bg={diff.bg}>{diff.icon} {problem.difficulty}</Chip>
         <Chip color={plat.color} bg={`${plat.color}15`}>{plat.icon} {plat.short}</Chip>
-        {problem.topic && <Chip color="#818CF8" bg="rgba(99,102,241,.12)">{problem.topic}</Chip>}
+        {problem.topic && <Chip color="#9F8FE3" bg="rgba(229,166,83,.12)">{problem.topic}</Chip>}
       </div>
 
       <div style={{ fontSize: featured ? 16 : 13, fontWeight: 800, marginBottom: 8, lineHeight: 1.35, paddingLeft: 6 }}>
@@ -233,7 +233,7 @@ function SkillPanel({ topics, diffStats, platforms }) {
         <div style={{ background: 'rgba(255,255,255,.025)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Linked</span>
           {platforms.map(p => {
-            const meta = PLAT_META[p.toLowerCase()] || { color: '#6366F1', short: p, icon: '⬡' }
+            const meta = PLAT_META[p.toLowerCase()] || { color: '#E5A653', short: p, icon: '⬡' }
             return <Chip key={p} color={meta.color} bg={`${meta.color}15`}>{meta.icon} {meta.short}</Chip>
           })}
         </div>
@@ -258,7 +258,7 @@ function SkillPanel({ topics, diffStats, platforms }) {
             )
           })}
           {diffStats.nextMilestone && (
-            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 9, fontSize: 11, color: '#818CF8', lineHeight: 1.55 }}>
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(229,166,83,.08)', border: '1px solid rgba(229,166,83,.2)', borderRadius: 9, fontSize: 11, color: '#9F8FE3', lineHeight: 1.55 }}>
               {diffStats.nextMilestone}
             </div>
           )}
@@ -284,8 +284,8 @@ function SkillPanel({ topics, diffStats, platforms }) {
         }
       </div>
 
-      <div style={{ background: 'rgba(99,102,241,.05)', border: '1px solid rgba(99,102,241,.12)', borderRadius: 14, padding: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#818CF8', marginBottom: 10 }}>How problems are chosen</div>
+      <div style={{ background: 'rgba(229,166,83,.05)', border: '1px solid rgba(229,166,83,.12)', borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#9F8FE3', marginBottom: 10 }}>How problems are chosen</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {Object.entries(CAT_META).filter(([k]) => k !== 'mission').map(([k, m]) => (
             <div key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
@@ -391,7 +391,7 @@ export default function PracticePage() {
 
   return (
     <div className="app-shell" style={{ background: 'linear-gradient(145deg,#060918,#0c1228 55%,#070b1a)' }}>
-      <div style={{ position:'fixed', top:-180, right:-180, width:500, height:500, background:'radial-gradient(circle,rgba(99,102,241,.08),transparent 65%)', borderRadius:'50%', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', top:-180, right:-180, width:500, height:500, background:'radial-gradient(circle,rgba(229,166,83,.08),transparent 65%)', borderRadius:'50%', pointerEvents:'none', zIndex:0 }} />
       <div style={{ position:'fixed', bottom:-120, left:80, width:380, height:380, background:'radial-gradient(circle,rgba(239,68,68,.06),transparent 65%)', borderRadius:'50%', pointerEvents:'none', zIndex:0 }} />
 
       <Sidebar />
@@ -400,13 +400,13 @@ export default function PracticePage() {
         <main className="page-content">
 
           <div style={{
-            background: 'linear-gradient(135deg,rgba(99,102,241,.14),rgba(139,92,246,.07))',
-            border: '1px solid rgba(99,102,241,.22)', borderRadius: 18,
+            background: 'linear-gradient(135deg,rgba(229,166,83,.14),rgba(159,143,227,.07))',
+            border: '1px solid rgba(229,166,83,.22)', borderRadius: 18,
             padding: '18px 22px', marginBottom: 20,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
           }}>
             <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:'linear-gradient(135deg,#6366F1,#8B5CF6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>
+              <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:'linear-gradient(135deg,#E5A653,#9F8FE3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>
                 {stageMeta.icon}
               </div>
               <div>
@@ -414,7 +414,7 @@ export default function PracticePage() {
                   <span style={{ fontSize:15, fontWeight:800 }}>Training Ground</span>
                   {stage && <Chip color={stageMeta.color}>{stageMeta.label}</Chip>}
                   {platforms.map(p => {
-                    const meta = PLAT_META[p.toLowerCase()] || { color:'#6366F1', short:p, icon:'⬡' }
+                    const meta = PLAT_META[p.toLowerCase()] || { color:'#E5A653', short:p, icon:'⬡' }
                     return <Chip key={p} color={meta.color} bg={`${meta.color}12`}>{meta.icon} {meta.short}</Chip>
                   })}
                 </div>
@@ -445,7 +445,7 @@ export default function PracticePage() {
 
           {loading ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:100, gap:14 }}>
-              <div style={{ width:44, height:44, border:'3px solid rgba(99,102,241,.2)', borderTop:'3px solid #6366F1', borderRadius:'50%', animation:'spin .8s linear infinite' }} />
+              <div style={{ width:44, height:44, border:'3px solid rgba(229,166,83,.2)', borderTop:'3px solid #E5A653', borderRadius:'50%', animation:'spin .8s linear infinite' }} />
               <div style={{ fontSize:13, color:'#64748B' }}>Analysing your skill profile…</div>
               <div style={{ fontSize:11, color:'rgba(148,163,184,.4)' }}>Fetching problems from all your linked platforms</div>
             </div>
@@ -484,7 +484,7 @@ export default function PracticePage() {
                     <div style={{ fontSize:16, fontWeight:800, marginBottom:6 }}>All caught up!</div>
                     <div style={{ fontSize:12, color:'#64748B', marginBottom:16 }}>No problems match this filter. Try "All Recs" or sync your platforms.</div>
                     <button onClick={() => { setFilter('all'); setSearch('') }}
-                      style={{ padding:'9px 22px', borderRadius:11, background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>
+                      style={{ padding:'9px 22px', borderRadius:11, background:'linear-gradient(135deg,#E5A653,#9F8FE3)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>
                       Show All
                     </button>
                   </div>

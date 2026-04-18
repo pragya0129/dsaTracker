@@ -71,6 +71,28 @@ public class PostController {
         }
     }
 
+    /** POST /api/posts/{id}/save — bookmark a post for later. */
+    @PostMapping("/{id}/save")
+    public ResponseEntity<?> save(@PathVariable Long id, Authentication auth) {
+        try {
+            return ResponseEntity.ok(service.savePost(id, auth.getName()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** DELETE /api/posts/{id}/save — remove bookmark. */
+    @DeleteMapping("/{id}/save")
+    public ResponseEntity<?> unsave(@PathVariable Long id, Authentication auth) {
+        return ResponseEntity.ok(service.unsavePost(id, auth.getName()));
+    }
+
+    /** GET /api/posts/saved — everything the current user has saved. */
+    @GetMapping("/saved")
+    public ResponseEntity<?> saved(Authentication auth) {
+        return ResponseEntity.ok(service.savedPosts(auth.getName()));
+    }
+
     /** DELETE /api/posts/{id} — owner-only delete */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
