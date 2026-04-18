@@ -244,7 +244,12 @@ export default function DashboardPage() {
                         <div style={{ fontSize: 60, marginBottom: 16 }}>🚀</div>
                         <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Welcome to AlgoLedger</h2>
                         <p style={{ color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 24 }}>Link your coding platforms to unlock your performance intelligence dashboard.</p>
-                        <a href="/onboarding" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', padding: '12px 28px', borderRadius: 12, fontWeight: 700, textDecoration: 'none' }}>Get Started →</a>
+                        <button
+                            onClick={() => navigate('/onboarding')}
+                            style={{ display: 'inline-block', background: 'linear-gradient(135deg,#E5A653,#9F8FE3)', color: '#fff', padding: '12px 28px', borderRadius: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: 15 }}
+                        >
+                            Get Started →
+                        </button>
                     </div>
                 </main>
             </div>

@@ -484,7 +484,13 @@ export default function ProfilePage() {
                                 <div className="card" style={{ padding: '40px 24px', textAlign: 'center' }}>
                                     <div style={{ fontSize: 36, marginBottom: 12 }}>🔗</div>
                                     <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-                                        No platforms linked. <a href="/onboarding" style={{ color: 'var(--accent)' }}>Complete onboarding</a> to add your accounts.
+                                        No platforms linked. <span
+                                            onClick={() => navigate('/onboarding')}
+                                            role="button" tabIndex={0}
+                                            onKeyDown={e => { if (e.key === 'Enter') navigate('/onboarding') }}
+                                            style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>
+                                            Complete onboarding
+                                        </span> to add your accounts.
                                     </div>
                                 </div>
                             )}
@@ -518,10 +524,23 @@ export default function ProfilePage() {
                                     {p.hasData && <div style={{ marginTop: 8 }}><span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: `${p.color}15`, color: p.color }}>↻ Fetched from {p.label} API</span></div>}
                                 </div>
                             ))}
-                            <div className="card" style={{ padding: '20px 24px', border: '1px dashed var(--border)', textAlign: 'center', cursor: 'pointer' }}>
+                            <div
+                                className="card"
+                                onClick={() => navigate('/onboarding')}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate('/onboarding') }}
+                                style={{
+                                    padding: '20px 24px', border: '1px dashed var(--border)',
+                                    textAlign: 'center', cursor: 'pointer',
+                                    transition: 'border-color .2s, background .2s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--amber)'; e.currentTarget.style.background = 'var(--amber-light)' }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = '' }}
+                            >
                                 <div style={{ fontSize: 24, marginBottom: 8 }}>+</div>
                                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Add Another Platform</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Go to <a href="/onboarding" style={{ color: 'var(--accent)' }}>onboarding</a> to link more accounts</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Click to link more accounts via onboarding</div>
                             </div>
                         </div>
                     )}
