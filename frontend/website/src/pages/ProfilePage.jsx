@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
-import Topbar from '../components/Topbar'
+import Topbar from '../components/TopBar'
 import {
     fetchDashboardData, syncAllPlatforms,
     getUserEmail, getUserName, fetchMe,

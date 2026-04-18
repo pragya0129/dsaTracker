@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
-import Topbar from '../components/Topbar'
+import Topbar from '../components/TopBar'
 
 const ALL_PROBLEMS = [
     { id: 1, platform: 'lc', name: 'Two Sum', difficulty: 'Easy', topic: 'Arrays', date: '2026-02-22' },

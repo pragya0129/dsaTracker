@@ -6,7 +6,7 @@ import {
     ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import Sidebar from '../components/Sidebar'
-import Topbar from '../components/Topbar'
+import Topbar from '../components/TopBar'
 import * as api from '../services/api'
 import {
     computeTopicStats, detectWeakTopics, computeSkillRadar,
