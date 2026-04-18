@@ -12,6 +12,16 @@ COPY mvnw .
 RUN chmod +x mvnw && ./mvnw -q dependency:go-offline
 
 COPY src src
+
+# The real application.properties is .gitignored (dev-local customisations,
+# possibly secrets) so it never enters the Docker build context. The
+# committed .example file is fully env-var-templated — safe to ship as
+# the canonical config. Copy it into place before building so Spring can
+# find spring.datasource.* on classpath at runtime.
+RUN test -f src/main/resources/application.properties || \
+    cp src/main/resources/application.properties.example \
+       src/main/resources/application.properties
+
 RUN ./mvnw -q clean package -DskipTests
 
 # ─── Stage 2: runtime (JRE only) ──────────────────────────────────────────

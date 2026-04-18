@@ -167,6 +167,13 @@ starts, which is exactly what you want in production.
 
 ## Troubleshooting
 
+**Spring Boot banner prints then `Failed to determine a suitable driver class` →
+`No open ports detected`** — `application.properties` isn't in the image.
+The file is git-ignored (your local copy may contain secrets), so only
+`application.properties.example` is committed. The Dockerfile copies the
+example to `application.properties` during build — make sure you pulled the
+latest `Dockerfile` from the repo, then redeploy.
+
 **Render build errors with `The JAVA_HOME environment variable is not defined`** —
 Render auto-detected Node.js because it saw a package.json nearby. Open
 the service → **Settings** → **Build & Deploy** → change **Language**
