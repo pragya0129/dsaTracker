@@ -1,0 +1,33 @@
+# Exclude everything Docker doesn't need from the build context.
+# Keeps images small and stops accidental secret leakage.
+
+# Frontend — separately deployed to Vercel, no need in the backend image
+frontend/
+
+# Local Maven output
+target/
+
+# IDE / editor cruft
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Git history
+.git/
+.gitignore
+.gitattributes
+
+# Docs (not needed at runtime)
+DEPLOY.md
+README.md
+*.md
+
+# Logs / local state
+*.log
+logs/
+backend.log
+
+# Local-only secrets (belt + suspenders; application.properties is
+# already gitignored but don't ship it even if someone force-adds it)
+src/main/resources/application.properties

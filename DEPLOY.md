@@ -35,17 +35,30 @@ git-ignored (the committed one is `application.properties.example`). Run
 
 ## 3. Deploy the backend — Render
 
+> **Note:** Render has no native Java runtime — you deploy Java apps as
+> Docker images. The repo already includes a `Dockerfile` that handles
+> the Maven build + Java 17 runtime in two stages, so all you do on
+> Render is point at the repo and pick "Docker".
+
 1. [render.com](https://render.com) → sign in with GitHub.
 2. **New** → **Web Service** → connect the repo.
 3. Configure:
    - **Name**: `algoledger`
-   - **Runtime**: `Java` (auto-detected)
+   - **Language / Environment**: **Docker** (don't pick Node.js — Render
+     defaults to it if you skip this, and the build fails with
+     "JAVA_HOME not defined")
    - **Branch**: `main`
-   - **Root Directory**: (leave blank)
-   - **Build Command**: `./mvnw clean install -DskipTests`
-   - **Start Command**: `java -jar target/*.jar --server.port=$PORT`
+   - **Root Directory**: (leave blank — the `Dockerfile` is at repo root)
+   - **Dockerfile Path**: `./Dockerfile` (auto-detected)
+   - **Build Command**: (leave blank — the `Dockerfile` handles it)
+   - **Start Command**: (leave blank — the `Dockerfile` `ENTRYPOINT` handles it)
    - **Instance Type**: **Free**
    - **Region**: Singapore (closest to Indian users)
+
+   If you already created a service with the wrong runtime (Node.js), just
+   open **Settings** on that service → **Build & Deploy** → change
+   **Language** from Node to Docker, clear any build/start commands, save,
+   and manually trigger a redeploy. No need to delete and recreate.
 4. **Environment** tab → add these one at a time:
 
    ```
@@ -153,6 +166,12 @@ starts, which is exactly what you want in production.
 ---
 
 ## Troubleshooting
+
+**Render build errors with `The JAVA_HOME environment variable is not defined`** —
+Render auto-detected Node.js because it saw a package.json nearby. Open
+the service → **Settings** → **Build & Deploy** → change **Language**
+from Node to **Docker**, clear any build/start commands (the `Dockerfile`
+handles both), save, trigger a manual redeploy.
 
 **Build fails with "postgresql driver not found"** — make sure you pulled
 the `pom.xml` change that swapped `mysql-connector-j` for `postgresql`.

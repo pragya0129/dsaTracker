@@ -6,6 +6,11 @@
 # env vars on the host; every property here reads from an env var first.
 # ──────────────────────────────────────────────────────────────────────────
 
+# ── HTTP port ─────────────────────────────────────────────────────────────
+# Render / Railway / Fly inject a PORT env var at runtime. Default 8080
+# for local dev (no env var needed — just run the jar / Docker image).
+server.port=${PORT:8080}
+
 # ── Database (PostgreSQL) ─────────────────────────────────────────────────
 spring.datasource.driver-class-name=org.postgresql.Driver
 spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/algoledger}
