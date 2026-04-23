@@ -1,5 +1,6 @@
 package com.example.dsa.social;
 
+import com.example.dsa.notifications.NotificationService;
 import com.example.dsa.user.UserInfo;
 import com.example.dsa.user.UserInfoRepository;
 import org.springframework.http.ResponseEntity;
@@ -30,10 +31,13 @@ public class FollowController {
 
     private final UserFollowRepository followRepo;
     private final UserInfoRepository userRepo;
+    private final NotificationService notifications;
 
-    public FollowController(UserFollowRepository followRepo, UserInfoRepository userRepo) {
+    public FollowController(UserFollowRepository followRepo, UserInfoRepository userRepo,
+                            NotificationService notifications) {
         this.followRepo = followRepo;
         this.userRepo = userRepo;
+        this.notifications = notifications;
     }
 
     /** Follow the user with this username. Idempotent: no-op if already followed. */
@@ -50,8 +54,14 @@ public class FollowController {
         if (myEmail.equalsIgnoreCase(theirEmail)) {
             return ResponseEntity.badRequest().body(Map.of("error", "You can't follow yourself"));
         }
+        boolean newFollow = false;
         if (!followRepo.existsByFollowerEmailAndFollowingEmail(myEmail, theirEmail)) {
             followRepo.save(new UserFollow(myEmail, theirEmail));
+            newFollow = true;
+        }
+        // Only emit on the transition idle→following to avoid spamming the target.
+        if (newFollow) {
+            notifications.notifyFollow(theirEmail, myEmail);
         }
         return ResponseEntity.ok(Map.of(
                 "following", true,

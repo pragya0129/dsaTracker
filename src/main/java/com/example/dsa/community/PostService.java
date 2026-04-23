@@ -1,5 +1,6 @@
 package com.example.dsa.community;
 
+import com.example.dsa.notifications.NotificationService;
 import com.example.dsa.social.SavedPost;
 import com.example.dsa.social.SavedPostRepository;
 import com.example.dsa.user.UserInfo;
@@ -23,13 +24,16 @@ public class PostService {
     private final PostLikeRepository likeRepo;
     private final UserInfoRepository userRepo;
     private final SavedPostRepository savedRepo;
+    private final NotificationService notifications;
 
     public PostService(PostRepository postRepo, PostLikeRepository likeRepo,
-            UserInfoRepository userRepo, SavedPostRepository savedRepo) {
+            UserInfoRepository userRepo, SavedPostRepository savedRepo,
+            NotificationService notifications) {
         this.postRepo = postRepo;
         this.likeRepo = likeRepo;
         this.userRepo = userRepo;
         this.savedRepo = savedRepo;
+        this.notifications = notifications;
     }
 
     /** Create a post for the authenticated user */
@@ -50,7 +54,12 @@ public class PostService {
         post.setTitle(req.getTitle().trim());
         post.setTopic(req.getTopic() != null ? req.getTopic().trim().toLowerCase() : "general");
         post.setContent(req.getContent().trim());
-        return PostDto.from(postRepo.save(post), false);
+        Post saved = postRepo.save(post);
+
+        // Fan out to the author's followers — best-effort, never blocks the create.
+        notifications.notifyFollowersOfPost(userEmail, saved.getId(), saved.getTitle());
+
+        return PostDto.from(saved, false);
     }
 
     /** Paginated feed — newest first */
@@ -136,6 +145,11 @@ public class PostService {
             liked = true;
         }
         postRepo.save(post);
+
+        // Only notify on the "now liked" transition — unlikes shouldn't spam the author.
+        if (liked) {
+            notifications.notifyLike(post.getUserId(), userEmail, post.getId(), post.getTitle());
+        }
         return Map.of("likeCount", post.getLikeCount(), "liked", liked);
     }
 

@@ -779,6 +779,30 @@ export async function fetchFollowStatus(username) { return authFetchJson(`/api/f
 export async function fetchFollowers(username)    { return authFetchJson(`/api/follow/${encodeURIComponent(username)}/followers`) }
 export async function fetchFollowing(username)    { return authFetchJson(`/api/follow/${encodeURIComponent(username)}/following`) }
 
+/* ── In-app notifications ──
+ *
+ * The bell in the TopBar polls fetchUnreadCount every minute (cheap, just
+ * a number) and fires fetchNotifications when the user actually opens the
+ * dropdown. We deliberately DON'T cache these — notifications need to feel
+ * live, and the payloads are small. */
+export async function fetchNotifications(page = 0, size = 20) {
+    return authFetchJson(`/api/notifications?page=${page}&size=${size}`)
+}
+export async function fetchUnreadNotifCount() {
+    return authFetchJson('/api/notifications/unread-count')
+}
+export async function markAllNotificationsRead() {
+    return authFetchJson('/api/notifications/mark-all-read', { method: 'POST' })
+}
+/** Admin only — broadcast a SYSTEM notification to every registered user.
+ *  Returns 403 unless the caller's email is in `app.admin.emails` server-side. */
+export async function broadcastNotification({ title, message, link }) {
+    return authFetchJson('/api/notifications/broadcast', {
+        method: 'POST',
+        body: JSON.stringify({ title, message, link }),
+    })
+}
+
 // ── Recommendations ────────────────────────────────────────────────────────────
 export async function completeDailyMission() {
     return authFetchJson('/recommendations/daily-mission/complete', { method: 'POST' })

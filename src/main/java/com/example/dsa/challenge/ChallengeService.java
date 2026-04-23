@@ -1,5 +1,6 @@
 package com.example.dsa.challenge;
 
+import com.example.dsa.notifications.NotificationService;
 import com.example.dsa.platform.PlatformAccountRepository;
 import com.example.dsa.platform.TopicStats;
 import com.example.dsa.platform.TopicStatsRepository;
@@ -55,6 +56,7 @@ public class ChallengeService {
     private final UserSolvedProblemRepository solvedProblemRepo;
     private final ContestProblemHistoryRepository historyRepo;
     private final ProblemFetchService fetchService;
+    private final NotificationService notifications;
 
     public ChallengeService(ChallengeRepository challengeRepo,
             ChallengeProblemRepository cpRepo,
@@ -65,7 +67,8 @@ public class ChallengeService {
             TopicStatsRepository topicStatsRepo,
             UserSolvedProblemRepository solvedProblemRepo,
             ContestProblemHistoryRepository historyRepo,
-            ProblemFetchService fetchService) {
+            ProblemFetchService fetchService,
+            NotificationService notifications) {
         this.challengeRepo = challengeRepo;
         this.cpRepo = cpRepo;
         this.caRepo = caRepo;
@@ -76,6 +79,7 @@ public class ChallengeService {
         this.solvedProblemRepo = solvedProblemRepo;
         this.historyRepo = historyRepo;
         this.fetchService = fetchService;
+        this.notifications = notifications;
     }
 
     /* ── 1. Create challenge ── */
@@ -146,6 +150,11 @@ public class ChallengeService {
         c.setContestType(type);
         c.setStatus(ChallengeStatus.PENDING);
         Challenge saved = challengeRepo.save(c);
+
+        // Drop a bell notification on the opponent. Swallow any failure —
+        // challenge creation is the primary action and shouldn't be blocked.
+        notifications.notifyChallengeInvite(opponentEmail, challengerEmail,
+                saved.getId(), type.name());
 
         // ── Dynamic problem selection ──
         // Collect all slugs both users have already solved (to skip them)
