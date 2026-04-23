@@ -258,10 +258,9 @@ function PostView({ post, onBack, onLike, myEmail }) {
                 </div>
             </div>
 
-            {/* Content — proper blog typography */}
-            <div style={{ fontSize: 16, lineHeight: 1.85, color: '#CBD5E1', whiteSpace: 'pre-wrap', letterSpacing: '0.01em' }}>
-                {post.content}
-            </div>
+            {/* Content — proper blog typography, rendered from markdown */}
+            <Markdown text={post.content} />
+            <style>{MD_CSS}</style>
 
             {/* Bottom action bar */}
             <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -274,6 +273,208 @@ function PostView({ post, onBack, onLike, myEmail }) {
             </div>
         </div>
     )
+}
+
+// ─── Markdown → React renderer (tiny, no external deps) ──────────────────
+//
+// Supports the syntax that actually matters for blog posts:
+//   Headings    # H1 · ## H2 · ### H3
+//   Emphasis    **bold** · *italic* · _italic_
+//   Code        `inline`  +  fenced ```blocks```
+//   Lists       - bullet  |  1. numbered
+//   Quote       > line
+//   Link        [text](url)
+//   Divider     --- (alone on a line)
+//
+// Deliberately limited — keeps the renderer readable and makes the
+// toolbar + preview stay perfectly in sync with what the user sees.
+
+// Inline-level tokens: handled inside a single text run (e.g. inside a <p>).
+function mdInline(s, keyBase = 'i') {
+    if (!s) return null
+    const out = []
+    let i = 0
+    let k = 0
+    // Order: code > bold > italic (*..*) > italic (_.._) > link
+    const RE = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(_[^_\n]+_)|(\[[^\]]+]\([^)\s]+\))/g
+    let m
+    while ((m = RE.exec(s)) !== null) {
+        if (m.index > i) out.push(s.slice(i, m.index))
+        const key = keyBase + '-' + k++
+        if (m[1]) {
+            out.push(<code key={key} className="md-icode">{m[1].slice(1, -1)}</code>)
+        } else if (m[2]) {
+            out.push(<strong key={key}>{m[2].slice(2, -2)}</strong>)
+        } else if (m[3]) {
+            out.push(<em key={key}>{m[3].slice(1, -1)}</em>)
+        } else if (m[4]) {
+            out.push(<em key={key}>{m[4].slice(1, -1)}</em>)
+        } else if (m[5]) {
+            const inner = m[5]
+            const sep = inner.indexOf(']')
+            const text = inner.slice(1, sep)
+            const url  = inner.slice(sep + 2, -1)
+            out.push(
+                <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="md-link">
+                    {text}
+                </a>
+            )
+        }
+        i = RE.lastIndex
+    }
+    if (i < s.length) out.push(s.slice(i))
+    return out
+}
+
+// Block-level walk over the lines. Each pattern consumes its own lines.
+function Markdown({ text }) {
+    if (!text) return null
+    const lines = text.replace(/\r\n/g, '\n').split('\n')
+    const blocks = []
+    let i = 0
+    let k = 0
+
+    while (i < lines.length) {
+        const line = lines[i]
+
+        // Fenced code block
+        if (/^```/.test(line)) {
+            const code = []
+            i++
+            while (i < lines.length && !/^```/.test(lines[i])) { code.push(lines[i]); i++ }
+            i++ // eat closing fence if present
+            blocks.push(<pre key={k++} className="md-block"><code>{code.join('\n')}</code></pre>)
+            continue
+        }
+
+        // Horizontal rule
+        if (/^\s*---\s*$/.test(line)) {
+            blocks.push(<hr key={k++} className="md-hr" />)
+            i++
+            continue
+        }
+
+        // Heading
+        const h = line.match(/^(#{1,3})\s+(.+?)\s*#*\s*$/)
+        if (h) {
+            const level = h[1].length
+            const cls = `md-h${level}`
+            if (level === 1) blocks.push(<h1 key={k++} className={cls}>{mdInline(h[2], 'h' + k)}</h1>)
+            else if (level === 2) blocks.push(<h2 key={k++} className={cls}>{mdInline(h[2], 'h' + k)}</h2>)
+            else blocks.push(<h3 key={k++} className={cls}>{mdInline(h[2], 'h' + k)}</h3>)
+            i++
+            continue
+        }
+
+        // Blockquote
+        if (/^>\s?/.test(line)) {
+            const items = []
+            while (i < lines.length && /^>\s?/.test(lines[i])) {
+                items.push(lines[i].replace(/^>\s?/, ''))
+                i++
+            }
+            blocks.push(
+                <blockquote key={k++} className="md-quote">
+                    {items.map((ln, j) => <p key={j}>{mdInline(ln, 'q' + k + '-' + j)}</p>)}
+                </blockquote>
+            )
+            continue
+        }
+
+        // Unordered list
+        if (/^\s*[-*]\s+/.test(line)) {
+            const items = []
+            while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+                items.push(lines[i].replace(/^\s*[-*]\s+/, ''))
+                i++
+            }
+            blocks.push(
+                <ul key={k++} className="md-ul">
+                    {items.map((ln, j) => <li key={j}>{mdInline(ln, 'ul' + k + '-' + j)}</li>)}
+                </ul>
+            )
+            continue
+        }
+
+        // Ordered list
+        if (/^\s*\d+\.\s+/.test(line)) {
+            const items = []
+            while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+                items.push(lines[i].replace(/^\s*\d+\.\s+/, ''))
+                i++
+            }
+            blocks.push(
+                <ol key={k++} className="md-ol">
+                    {items.map((ln, j) => <li key={j}>{mdInline(ln, 'ol' + k + '-' + j)}</li>)}
+                </ol>
+            )
+            continue
+        }
+
+        // Blank line → end-of-paragraph separator, skip
+        if (/^\s*$/.test(line)) { i++; continue }
+
+        // Default: paragraph. Consume consecutive non-special lines.
+        const para = [line]
+        i++
+        while (
+            i < lines.length &&
+            !/^\s*$/.test(lines[i]) &&
+            !/^(#{1,3}\s|>\s?|```|\s*---\s*$|\s*[-*]\s+|\s*\d+\.\s+)/.test(lines[i])
+        ) {
+            para.push(lines[i])
+            i++
+        }
+        blocks.push(<p key={k++} className="md-p">{mdInline(para.join(' '), 'p' + k)}</p>)
+    }
+
+    return <div className="md-body">{blocks}</div>
+}
+
+// ─── Textarea formatting helpers ──────────────────────────────────────────
+// These operate on a raw textarea (DOM node) and return the NEXT {value,
+// selection} — the caller commits to React state, then restores selection.
+
+function mdWrap(ta, before, after = before, placeholder = '') {
+    const start = ta.selectionStart
+    const end   = ta.selectionEnd
+    const v     = ta.value
+    const sel   = v.slice(start, end) || placeholder
+    const next  = v.slice(0, start) + before + sel + after + v.slice(end)
+    return {
+        value: next,
+        selStart: start + before.length,
+        selEnd:   start + before.length + sel.length,
+    }
+}
+
+function mdLinePrefix(ta, prefix) {
+    const start = ta.selectionStart
+    const end   = ta.selectionEnd
+    const v     = ta.value
+    // Expand to line boundaries
+    const lineStart = v.lastIndexOf('\n', start - 1) + 1
+    let lineEnd = v.indexOf('\n', end)
+    if (lineEnd === -1) lineEnd = v.length
+    const block    = v.slice(lineStart, lineEnd)
+    const replaced = block.split('\n').map(ln => prefix + ln).join('\n')
+    const next     = v.slice(0, lineStart) + replaced + v.slice(lineEnd)
+    return {
+        value: next,
+        selStart: lineStart,
+        selEnd:   lineStart + replaced.length,
+    }
+}
+
+function mdInsertAt(ta, snippet) {
+    const start = ta.selectionStart
+    const v     = ta.value
+    const next  = v.slice(0, start) + snippet + v.slice(start)
+    return {
+        value: next,
+        selStart: start + snippet.length,
+        selEnd:   start + snippet.length,
+    }
 }
 
 // ─── Write editor (full page, not a modal) ────────────────────────────────────
@@ -297,6 +498,53 @@ function WriteEditor({ onCancel, onPublished }) {
         el.style.height = 'auto'
         el.style.height = el.scrollHeight + 'px'
     }
+
+    // ── Apply a formatting fn to the body textarea ──
+    // Commits the new value to state, then restores focus + selection on
+    // the next paint so the user's cursor lands where they'd expect.
+    function applyFormat(fn) {
+        const ta = textareaRef.current
+        if (!ta) return
+        const r = fn(ta)
+        if (!r) return
+        setForm(f => ({ ...f, content: r.value }))
+        requestAnimationFrame(() => {
+            ta.focus()
+            ta.setSelectionRange(r.selStart, r.selEnd)
+            autoResize(ta)
+        })
+    }
+
+    // Textarea keyboard shortcuts — the classic blog-editor triad.
+    function onBodyKeyDown(e) {
+        const mod = e.ctrlKey || e.metaKey
+        if (!mod) return
+        const key = e.key.toLowerCase()
+        if (key === 'b') { e.preventDefault(); applyFormat(ta => mdWrap(ta, '**', '**', 'bold text')) }
+        else if (key === 'i') { e.preventDefault(); applyFormat(ta => mdWrap(ta, '*', '*', 'italic')) }
+        else if (key === 'k') { e.preventDefault(); applyFormat(ta => mdWrap(ta, '[', '](https://)', 'link text')) }
+    }
+
+    // Toolbar definition — the order is optimised for mouse-scanning:
+    // structure first (headings), then weight (bold/italic/code), then
+    // containers (link/list/quote), then block tools (codeblock/hr).
+    const TOOLS = [
+        { id: 'h1',    label: 'H1',  title: 'Heading 1',      apply: ta => mdLinePrefix(ta, '# ')  },
+        { id: 'h2',    label: 'H2',  title: 'Heading 2',      apply: ta => mdLinePrefix(ta, '## ') },
+        { id: 'h3',    label: 'H3',  title: 'Heading 3',      apply: ta => mdLinePrefix(ta, '### ') },
+        { id: 'sep1',  separator: true },
+        { id: 'b',     label: 'B',   title: 'Bold  (Ctrl+B)', bold: true,   apply: ta => mdWrap(ta, '**', '**', 'bold text') },
+        { id: 'i',     label: 'I',   title: 'Italic  (Ctrl+I)', italic: true, apply: ta => mdWrap(ta, '*', '*', 'italic') },
+        { id: 'code',  label: '</>', title: 'Inline code',    mono: true,  apply: ta => mdWrap(ta, '`', '`', 'code') },
+        { id: 'sep2',  separator: true },
+        { id: 'link',  label: '🔗',  title: 'Link  (Ctrl+K)',   apply: ta => mdWrap(ta, '[', '](https://)', 'link text') },
+        { id: 'ul',    label: '• List',   title: 'Bulleted list', apply: ta => mdLinePrefix(ta, '- ') },
+        { id: 'ol',    label: '1. List',  title: 'Numbered list', apply: ta => mdLinePrefix(ta, '1. ') },
+        { id: 'quote', label: '“ ”', title: 'Quote',          apply: ta => mdLinePrefix(ta, '> ') },
+        { id: 'sep3',  separator: true },
+        { id: 'block', label: '{ }', title: 'Code block',    mono: true,  apply: ta => mdWrap(ta, '```\n', '\n```\n', 'code') },
+        { id: 'hr',    label: '—',   title: 'Divider',        apply: ta => mdInsertAt(ta, '\n\n---\n\n') },
+    ]
 
     async function handleSubmit(e) {
         e.preventDefault(); setFormErr('')
@@ -346,7 +594,7 @@ function WriteEditor({ onCancel, onPublished }) {
                         {form.title || <span style={{ color: '#475569' }}>Untitled post</span>}
                     </h1>
                     <div style={{ fontSize: 12, color: '#64748B', marginBottom: 28 }}>{words} words · {mins} min read</div>
-                    <div style={{ fontSize: 16, lineHeight: 1.85, color: '#CBD5E1', whiteSpace: 'pre-wrap' }}>{form.content}</div>
+                    <Markdown text={form.content} />
                 </div>
             ) : (
                 /* ── Edit mode ── */
@@ -380,14 +628,46 @@ function WriteEditor({ onCancel, onPublished }) {
                     />
 
                     {/* Divider */}
-                    <div style={{ height: 1, background: 'rgba(255,255,255,.07)', marginBottom: 28 }} />
+                    <div style={{ height: 1, background: 'rgba(255,255,255,.07)', marginBottom: 20 }} />
+
+                    {/* ── Formatting toolbar ── */}
+                    <div className="md-toolbar" role="toolbar" aria-label="Formatting">
+                        {TOOLS.map(t => t.separator
+                            ? <span key={t.id} className="md-tb-sep" aria-hidden />
+                            : (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    title={t.title}
+                                    aria-label={t.title}
+                                    onClick={() => applyFormat(t.apply)}
+                                    className={
+                                        'md-tb-btn' +
+                                        (t.bold   ? ' md-tb-bold'   : '') +
+                                        (t.italic ? ' md-tb-italic' : '') +
+                                        (t.mono   ? ' md-tb-mono'   : '')
+                                    }
+                                >
+                                    {t.label}
+                                </button>
+                            )
+                        )}
+                    </div>
 
                     {/* Body */}
                     <textarea
                         ref={textareaRef}
                         value={form.content}
                         onChange={e => { setForm(f => ({ ...f, content: e.target.value })); autoResize(e.target) }}
-                        placeholder="Start writing your post… Share a technique, a problem approach, an interview tip, or anything that helped you grow."
+                        onKeyDown={onBodyKeyDown}
+                        placeholder="Start writing your post…
+
+Try a heading:   # My approach
+Emphasise:       **bold**, *italic*, `inline code`
+List your steps: - first step
+                 - second step
+Quote:           > a lesson that stuck
+Link:            [read more](https://…)"
                         style={{
                             width: '100%', background: 'transparent', border: 'none', outline: 'none',
                             fontSize: 16, color: '#CBD5E1', lineHeight: 1.85,
@@ -395,11 +675,204 @@ function WriteEditor({ onCancel, onPublished }) {
                             padding: 0, boxSizing: 'border-box',
                         }}
                     />
+
+                    {/* ── Syntax hint row ── */}
+                    <div className="md-hint">
+                        <span><strong className="md-hint-k">**bold**</strong></span>
+                        <span><em className="md-hint-k">*italic*</em></span>
+                        <span><code className="md-hint-k">`code`</code></span>
+                        <span><span className="md-hint-k"># Heading</span></span>
+                        <span><span className="md-hint-k">- list</span></span>
+                        <span><span className="md-hint-k">&gt; quote</span></span>
+                        <span className="md-hint-muted">markdown supported</span>
+                    </div>
                 </form>
             )}
+
+            {/* Scoped styles for toolbar + rendered markdown */}
+            <style>{MD_CSS}</style>
         </div>
     )
 }
+
+// ─── Scoped styles for the Markdown toolbar + rendered output ─────────────
+// Everything under .md-body / .md-toolbar / .md-hint is opt-in — nothing
+// here leaks onto the rest of the page.
+const MD_CSS = `
+/* ── Toolbar ── */
+.md-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    margin-bottom: 14px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: 0;
+    z-index: 4;
+}
+.md-tb-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #CBD5E1;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.md-tb-btn:hover {
+    background: rgba(229, 166, 83, 0.12);
+    color: #F8FAFC;
+    border-color: rgba(229, 166, 83, 0.25);
+}
+.md-tb-btn:active { transform: translateY(1px); }
+.md-tb-bold   { font-weight: 900; }
+.md-tb-italic { font-style: italic; }
+.md-tb-mono   { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 12px; }
+.md-tb-sep {
+    width: 1px; height: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 0 4px;
+    display: inline-block;
+}
+
+/* ── Syntax hint row ── */
+.md-hint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    color: #64748B;
+}
+.md-hint-k {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    font-size: 11.5px;
+    color: #94A3B8;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 2px 7px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.md-hint-muted {
+    margin-left: auto;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/* ── Rendered body — real blog typography ── */
+.md-body {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #CBD5E1;
+    letter-spacing: 0.005em;
+}
+.md-body > * + * { margin-top: 18px; }
+
+.md-h1, .md-h2, .md-h3 {
+    color: #F1F5F9;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    margin-top: 36px;
+}
+.md-h1 { font-size: 28px; margin-top: 28px; }
+.md-h2 {
+    font-size: 22px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.md-h3 { font-size: 18px; color: #E2E8F0; }
+
+.md-p { margin: 0; }
+
+.md-body strong {
+    color: #F1F5F9;
+    font-weight: 800;
+}
+.md-body em { color: #E2E8F0; font-style: italic; }
+
+.md-icode {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    font-size: 0.88em;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(229, 166, 83, 0.1);
+    border: 1px solid rgba(229, 166, 83, 0.18);
+    color: #F3C887;
+}
+
+.md-block {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    padding: 16px 18px;
+    background: rgba(8, 12, 30, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid rgba(229, 166, 83, 0.55);
+    border-radius: 10px;
+    color: #E2E8F0;
+    overflow-x: auto;
+}
+.md-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+
+.md-ul, .md-ol {
+    margin: 0;
+    padding-left: 26px;
+    color: #CBD5E1;
+}
+.md-ul li, .md-ol li {
+    margin: 8px 0;
+    padding-left: 4px;
+    line-height: 1.7;
+}
+.md-ul li::marker { color: #E5A653; }
+.md-ol li::marker { color: #9F8FE3; font-weight: 700; }
+
+.md-quote {
+    margin: 0;
+    padding: 4px 18px;
+    border-left: 3px solid rgba(159, 143, 227, 0.7);
+    background: rgba(159, 143, 227, 0.05);
+    color: #E2E8F0;
+    font-style: italic;
+    border-radius: 0 10px 10px 0;
+}
+.md-quote p { margin: 8px 0; }
+
+.md-hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(229,166,83,0.3), transparent);
+    margin: 28px 0;
+}
+
+.md-link {
+    color: #F3C887;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(243, 200, 135, 0.35);
+    transition: color 0.15s, border-color 0.15s;
+}
+.md-link:hover {
+    color: #FFE4BC;
+    border-bottom-color: rgba(255, 228, 188, 0.7);
+}
+`
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CommunityPage() {
