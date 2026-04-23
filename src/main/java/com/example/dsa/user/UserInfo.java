@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 
 import java.time.LocalDate;
 
@@ -33,11 +32,16 @@ public class UserInfo {
 
     /**
      * Base64 data URL of the user's profile picture (nullable).
-     * columnDefinition="TEXT" works for both Postgres (unlimited) and
-     * MySQL (65 KB) — if we ever need >65 KB on MySQL, switch back to
-     * LONGTEXT per-platform via a JPA provider hook.
+     *
+     * Stored in a plain Postgres TEXT column (unlimited up to ~1 GB) —
+     * {@code columnDefinition = "TEXT"} on its own is enough.
+     *
+     * NB: do NOT add @Lob here. On Hibernate 6 / Spring Boot 3, @Lob on a
+     * String forces the JDBC driver to use a streamed CLOB read that needs
+     * an active session, which clashes with the plain TEXT column type.
+     * The result was "Unable to access lob stream" errors during login
+     * (when the session is closed before the user is serialised).
      */
-    @Lob
     @Column(name = "profile_pic", columnDefinition = "TEXT")
     private String profilePic;
 
