@@ -63,7 +63,11 @@ public class SecurityConfig {
                                 "/auth/signup/request",
                                 "/auth/signup/resend",
                                 "/auth/signup/verify",
-                                "/auth/username/check").permitAll()
+                                "/auth/username/check",
+                                // /auth/logout is permitAll on purpose — a user
+                                // with an expired/corrupt cookie should still be
+                                // able to clear it cleanly without bouncing off 401.
+                                "/auth/logout").permitAll()
                         // Admin-only legacy direct-create endpoint.
                         .requestMatchers("/auth/addNewUser").hasAuthority("ROLE_ADMIN")
                         // Public platform APIs (username verification during onboarding)

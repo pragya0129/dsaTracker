@@ -1,6 +1,10 @@
 package com.example.dsa.user;
 
 import com.example.dsa.auth.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,6 +35,48 @@ public class UserController {
         this.emailVerificationService = emailVerificationService;
     }
 
+    /* ───────────── Auth-cookie helpers ─────────────
+     *
+     * The JWT lives in an HttpOnly, SameSite=Lax cookie now — JavaScript
+     * on the page literally cannot read it, so an XSS attack can't steal
+     * the token, and DevTools' Storage tab won't show it either.
+     *
+     * Secure flag is conditional on the request being served over HTTPS
+     * (directly or behind an X-Forwarded-Proto reverse proxy). Local HTTP
+     * dev still works without HTTPS; production uses HTTPS, so the cookie
+     * gets the Secure flag automatically.
+     */
+    private static final String JWT_COOKIE_NAME = "jwt";
+    private static final long   JWT_COOKIE_MAX_AGE_SECONDS = 7L * 24 * 60 * 60; // 7 days
+
+    private static boolean isSecureRequest(HttpServletRequest request) {
+        if (request.isSecure()) return true;
+        String fwd = request.getHeader("X-Forwarded-Proto");
+        return fwd != null && fwd.equalsIgnoreCase("https");
+    }
+
+    private static void setAuthCookie(HttpServletRequest request, HttpServletResponse response, String token) {
+        ResponseCookie cookie = ResponseCookie.from(JWT_COOKIE_NAME, token)
+                .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(JWT_COOKIE_MAX_AGE_SECONDS)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private static void clearAuthCookie(HttpServletRequest request, HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(JWT_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
     @GetMapping("/welcome")
     public String welcome() {
         return "Welcome this endpoint is not secure";
@@ -50,19 +96,23 @@ public class UserController {
      * Body: {@code { name, email, password }}.
      */
     @PostMapping("/signup/request")
-    public ResponseEntity<?> signupRequest(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> signupRequest(@RequestBody Map<String, String> body,
+                                           HttpServletRequest request,
+                                           HttpServletResponse response) {
         EmailVerificationService.RequestOutcome r = emailVerificationService.requestVerification(
                 body.get("name"), body.get("username"), body.get("email"), body.get("password"));
         if (!r.sent()) {
             return ResponseEntity.badRequest().body(Map.of("error", r.error()));
         }
         // Feature-flag branch: when OTP is off, the account is already
-        // created — hand back a JWT so the frontend can log in straight away.
+        // created — issue the auth cookie so the frontend is logged in.
         if (r.autoCreatedUser() != null) {
             UserInfo user = r.autoCreatedUser();
             String token = jwtService.generateToken(user.getEmail());
+            setAuthCookie(request, response, token);
+            // NB: token is intentionally NOT echoed in the body — it lives
+            // only in the HttpOnly cookie now, where JS can't see it.
             Map<String, Object> resp = new HashMap<>();
-            resp.put("token",    token);
             resp.put("email",    user.getEmail());
             resp.put("name",     user.getName() != null ? user.getName() : "");
             resp.put("username", user.getUsername());
@@ -107,7 +157,9 @@ public class UserController {
      * Body: {@code { email, otp }}.
      */
     @PostMapping("/signup/verify")
-    public ResponseEntity<?> signupVerify(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> signupVerify(@RequestBody Map<String, String> body,
+                                          HttpServletRequest request,
+                                          HttpServletResponse response) {
         EmailVerificationService.VerifyOutcome r = emailVerificationService.verifyAndCreate(
                 body.get("email"), body.get("otp"));
         if (r.user() == null) {
@@ -115,8 +167,9 @@ public class UserController {
         }
         UserInfo user = r.user();
         String token = jwtService.generateToken(user.getEmail());
+        setAuthCookie(request, response, token);
+        // Token NOT in body — HttpOnly cookie only.
         Map<String, Object> resp = new HashMap<>();
-        resp.put("token", token);
         resp.put("email", user.getEmail());
         resp.put("name", user.getName() != null ? user.getName() : "");
         resp.put("username", user.getUsername());
@@ -124,14 +177,28 @@ public class UserController {
     }
 
     @PostMapping("/generateToken")
-    public String authenticateAndGetToken(@RequestBody AuthRequest authRequest) {
+    public ResponseEntity<?> authenticateAndGetToken(@RequestBody AuthRequest authRequest,
+                                                     HttpServletRequest request,
+                                                     HttpServletResponse response) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword()));
-        if (authentication.isAuthenticated()) {
-            return jwtService.generateToken(authRequest.getUsername());
-        } else {
+        if (!authentication.isAuthenticated()) {
             throw new UsernameNotFoundException("Invalid user request!");
         }
+        String token = jwtService.generateToken(authRequest.getUsername());
+        setAuthCookie(request, response, token);
+        // No token in body — the HttpOnly cookie is the only place it lives.
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("ok", true);
+        resp.put("email", authRequest.getUsername());
+        return ResponseEntity.ok(resp);
+    }
+
+    /** Clears the auth cookie. JS-callable from the frontend's Logout button. */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        clearAuthCookie(request, response);
+        return ResponseEntity.ok(Map.of("ok", true));
     }
 
     /** Returns the authenticated user's profile: name, email, profilePic */

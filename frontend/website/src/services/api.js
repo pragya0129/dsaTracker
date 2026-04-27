@@ -7,10 +7,27 @@
 // fall through to localhost:8080 for local dev with `npm run dev`.
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080'
 
-/* ── JWT Token Management ── */
+/* ── Auth state — JWT lives in an HttpOnly cookie now ──
+ *
+ * SECURITY NOTE
+ * The JWT is no longer stored in localStorage. JavaScript on this page
+ * literally cannot read it, so a successful XSS attack can't steal the
+ * token and DevTools' Storage tab won't show it either. The browser
+ * sends the auth cookie automatically on every request thanks to
+ * `credentials: 'include'` below; we don't have to attach a Bearer
+ * header at all.
+ *
+ * The kept-in-localStorage values (email, name, username) are NOT
+ * credentials — they're just UI hints (the avatar's initial letter,
+ * routing decisions, etc.). Even if leaked, an attacker can't auth
+ * with them. The session itself lives entirely in the HttpOnly cookie.
+ */
 
-export function getJWTToken() { return localStorage.getItem('jwt_token') }
-export function setJWTToken(token) { localStorage.setItem('jwt_token', token) }
+// Backwards-compat shims — kept as no-ops so older code that imported
+// these functions doesn't crash. Don't actually read or write tokens.
+export function getJWTToken() { return null }
+export function setJWTToken() { /* no-op: cookie is set by the server */ }
+
 export function setUserEmail(email) { localStorage.setItem('jwt_email', email) }
 export function getUserEmail() { return localStorage.getItem('jwt_email') }
 export function setUserName(name) { localStorage.setItem('jwt_name', name) }
@@ -19,9 +36,17 @@ export function setUsername(u) { if (u) localStorage.setItem('jwt_username', u);
 export function getUsername() { return localStorage.getItem('jwt_username') || '' }
 
 export function clearAuth() {
-    // Wipe the dashboard cache FIRST — we need the email still in storage
-    // so clearAllCache() can build the per-user prefix.
+    // Wipe dashboard cache FIRST — clearAllCache builds its prefix from
+    // the email, so we need the email still in storage at this point.
     try { clearAllCache() } catch { /* ignore */ }
+    // Best-effort: ask the server to clear the auth cookie. We don't await
+    // it — even if it fails (offline, server down), local UI state still
+    // gets cleared so the user sees themselves as logged out.
+    try {
+        fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
+            .catch(() => {})
+    } catch { /* ignore */ }
+    // Strip any legacy JWT some older build may have left behind.
     localStorage.removeItem('jwt_token')
     localStorage.removeItem('jwt_email')
     localStorage.removeItem('jwt_name')
@@ -29,24 +54,29 @@ export function clearAuth() {
     localStorage.removeItem('algoledger_platforms')
     // Profile pic cache — cleared via the shared helper so avatars update live.
     try {
-        // Dynamic import avoids a circular dep at module-load time.
         import('../utils/profilePic').then(m => m.clearProfilePic()).catch(() => {})
     } catch { /* ignore */ }
 }
 
 export function isAuthenticated() {
-    return !!getJWTToken() && !!getUserEmail()
+    // We can't read the HttpOnly cookie, so we use the email as a UI hint:
+    // if the user has logged in this browser, their email is in localStorage.
+    // Any actually-stale session gets caught by the 401 handler in
+    // authFetchJson, which clears local state and redirects to /login.
+    return !!getUserEmail()
 }
 
-/** Authenticated fetch wrapper — auto-attaches Bearer token */
+/** Authenticated fetch wrapper — sends the HttpOnly auth cookie automatically. */
 async function authFetch(path, options = {}) {
-    const token = getJWTToken()
     const headers = {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers || {}),
     }
-    return fetch(`${API_BASE}${path}`, { ...options, headers })
+    return fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+        credentials: 'include', // send the auth cookie cross-origin
+    })
 }
 
 /** Convenience: authenticated fetch that parses JSON and returns {ok, data, error} */
@@ -236,13 +266,14 @@ export async function signupRequest(name, username, email, password) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, username, email, password }),
+            credentials: 'include', // accept the auth cookie if backend skips OTP
         })
         const data = await res.json().catch(() => ({}))
         if (res.ok) {
-            // Verification-disabled fast-path: backend already created the
-            // account and handed us a token. Log in locally.
-            if (data.token) {
-                setJWTToken(data.token)
+            // Verification-disabled fast-path: server already created the
+            // account and dropped the auth cookie. Mirror the non-secret UI
+            // bits into localStorage; no token here on purpose.
+            if (data.verificationSkipped) {
                 setUserEmail(data.email || email)
                 if (data.name)     setUserName(data.name)
                 if (data.username) setUsername(data.username)
@@ -300,10 +331,10 @@ export async function signupVerify(email, otp) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, otp }),
+            credentials: 'include', // accept the auth cookie on success
         })
         const data = await res.json().catch(() => ({}))
-        if (res.ok && data.token) {
-            setJWTToken(data.token)
+        if (res.ok && data.email) {
             setUserEmail(data.email || email)
             if (data.name) setUserName(data.name)
             if (data.username) setUsername(data.username)
@@ -315,39 +346,38 @@ export async function signupVerify(email, otp) {
     }
 }
 
-/** Login user and get JWT token */
+/** Login: exchange email + password for an HttpOnly auth cookie. */
 export async function login(email, password) {
     try {
         const res = await fetch(`${API_BASE}/auth/generateToken`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: email, password }),
+            credentials: 'include', // accept the auth cookie
         })
-        if (res.ok) {
-            const token = await res.text()
-            setJWTToken(token)
-            setUserEmail(email)
-            // Fetch user's name + profile pic from backend
-            try {
-                const meRes = await fetch(`${API_BASE}/auth/me`, {
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                })
-                if (meRes.ok) {
-                    const me = await meRes.json()
-                    if (me.name) setUserName(me.name)
-                    setUsername(me.username || '')
-                    // Mirror backend pic into local cache (or clear if null)
-                    try {
-                        const mod = await import('../utils/profilePic')
-                        mod.setProfilePic(me.profilePic || null)
-                    } catch { /* ignore */ }
-                }
-            } catch (_) { /* name+pic fetch is best-effort */ }
-            return { success: true, token, email }
-        } else {
-            const error = await res.text()
-            return { success: false, error: error || 'Invalid email or password' }
+        if (!res.ok) {
+            const errBody = await res.text().catch(() => '')
+            return { success: false, error: errBody || 'Invalid email or password' }
         }
+        // Server set the auth cookie; we just persist UI hints.
+        setUserEmail(email)
+        // Fetch the user's name + profile pic — the cookie auto-authenticates.
+        try {
+            const meRes = await fetch(`${API_BASE}/auth/me`, {
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            })
+            if (meRes.ok) {
+                const me = await meRes.json()
+                if (me.name) setUserName(me.name)
+                setUsername(me.username || '')
+                try {
+                    const mod = await import('../utils/profilePic')
+                    mod.setProfilePic(me.profilePic || null)
+                } catch { /* ignore */ }
+            }
+        } catch { /* best-effort, login still succeeded */ }
+        return { success: true, email }
     } catch (err) {
         return { success: false, error: 'Cannot connect to server. Please ensure the backend is running.' }
     }

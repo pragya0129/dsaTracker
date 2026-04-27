@@ -290,6 +290,29 @@ function PostView({ post, onBack, onLike, myEmail }) {
 // toolbar + preview stay perfectly in sync with what the user sees.
 
 // Inline-level tokens: handled inside a single text run (e.g. inside a <p>).
+// SECURITY — Allowlist URL schemes for markdown links. Anything else
+// (javascript:, data:, vbscript:, file:, about:, blob:, etc.) is rejected.
+// Without this, a blog post like `[click](javascript:fetch('/steal'))` would
+// produce an `<a href="javascript:…">` that runs attacker code on click.
+// SECURITY — Allowlist URL schemes for markdown links. Anything else
+// (javascript:, data:, vbscript:, file:, about:, blob:, etc.) is rejected.
+// Without this, a blog post like `[click](javascript:fetch('/steal'))` would
+// produce an `<a href="javascript:…">` that runs attacker code on click.
+function safeLinkUrl(raw) {
+    if (raw == null) return null
+    const url = String(raw).trim()
+    if (!url) return null
+    // Relative paths and same-page anchors are always fine.
+    if (url.startsWith('/') || url.startsWith('#')) return url
+    // Lowercased prefix check — http(s) and mailto only. Anything else
+    // (javascript:, data:, vbscript:, etc.) is rejected.
+    const lower = url.toLowerCase()
+    if (lower.startsWith('http://') || lower.startsWith('https://') || lower.startsWith('mailto:')) {
+        return url
+    }
+    return null
+}
+
 function mdInline(s, keyBase = 'i') {
     if (!s) return null
     const out = []
@@ -313,12 +336,19 @@ function mdInline(s, keyBase = 'i') {
             const inner = m[5]
             const sep = inner.indexOf(']')
             const text = inner.slice(1, sep)
-            const url  = inner.slice(sep + 2, -1)
-            out.push(
-                <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="md-link">
-                    {text}
-                </a>
-            )
+            const safe = safeLinkUrl(inner.slice(sep + 2, -1))
+            if (safe) {
+                out.push(
+                    <a key={key} href={safe} target="_blank" rel="noopener noreferrer nofollow"
+                       className="md-link">
+                        {text}
+                    </a>
+                )
+            } else {
+                // Unsafe scheme: render the link text as plain text so the
+                // user still sees what was written, but no clickable link.
+                out.push(<span key={key} className="md-link-blocked" title="Link blocked: unsupported URL">{text}</span>)
+            }
         }
         i = RE.lastIndex
     }
@@ -915,6 +945,13 @@ const MD_CSS = `
 .md-link:hover {
     color: #FFE4BC;
     border-bottom-color: rgba(255, 228, 188, 0.7);
+}
+/* Link rejected by the URL-scheme allowlist — shown as muted strikethrough text. */
+.md-link-blocked {
+    color: #94A3B8;
+    text-decoration: line-through;
+    text-decoration-color: rgba(148, 163, 184, 0.5);
+    cursor: not-allowed;
 }
 `
 

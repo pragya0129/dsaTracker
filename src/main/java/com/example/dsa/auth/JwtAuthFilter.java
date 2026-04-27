@@ -12,6 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -31,12 +32,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        final String authHeader = request.getHeader("Authorization");
-        String username = null;
-        String token = null;
+        // Prefer the HttpOnly auth cookie (XSS-safe); fall back to Authorization
+        // header so legacy/native API clients that send Bearer tokens still work.
+        String token = readTokenFromCookie(request);
+        if (token == null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+        }
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
+        String username = null;
+        if (token != null) {
             try {
                 username = jwtService.extractUsername(token);
             } catch (Exception e) {
@@ -72,5 +79,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write("{\"error\":\"" + message + "\",\"status\":" + status.value() + "}");
+    }
+
+    /** Read the JWT from the HttpOnly auth cookie. Returns null if absent. */
+    private static String readTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if ("jwt".equals(c.getName())) {
+                String v = c.getValue();
+                return (v == null || v.isEmpty()) ? null : v;
+            }
+        }
+        return null;
     }
 }
