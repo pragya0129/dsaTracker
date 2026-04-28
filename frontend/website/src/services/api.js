@@ -7,6 +7,41 @@
 // fall through to localhost:8080 for local dev with `npm run dev`.
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080'
 
+// ── One-shot legacy-session cleanup ────────────────────────────────────────
+//
+// Runs once when this module loads. Users who logged in before the JWT-cookie
+// migration have a stale `jwt_token` value sitting in localStorage. The new
+// code path doesn't send that token anymore, so those sessions can't auth —
+// but the UI still thinks they're logged in (because their email is also in
+// localStorage), so they end up staring at a half-loaded dashboard.
+//
+// Detect that situation here and wipe everything so the user lands on the
+// login screen on the very next render. They sign in once, get the cookie,
+// and from then on the new flow takes over. They don't have to clear caches
+// or open DevTools — it just works.
+;(function migrateLegacyAuth() {
+    if (typeof window === 'undefined') return
+    try {
+        if (localStorage.getItem('jwt_token') != null) {
+            // Wipe ALL persisted cache entries (any user prefix), too — the
+            // old session may have cached error envelopes against its email.
+            try {
+                const doomed = []
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i)
+                    if (k && k.startsWith('algoledger:cache:')) doomed.push(k)
+                }
+                doomed.forEach(k => localStorage.removeItem(k))
+            } catch { /* ignore */ }
+            localStorage.removeItem('jwt_token')
+            localStorage.removeItem('jwt_email')
+            localStorage.removeItem('jwt_name')
+            localStorage.removeItem('jwt_username')
+            localStorage.removeItem('algoledger_platforms')
+        }
+    } catch { /* ignore — better to load app than crash on storage error */ }
+})()
+
 /* ── Auth state — JWT lives in an HttpOnly cookie now ──
  *
  * SECURITY NOTE
@@ -556,12 +591,31 @@ function cachedFetch(key, fetcher, { forceRefresh = false } = {}) {
     }
     const p = fetcher()
         .then(value => {
-            _writePersisted(key, value)
+            const isErrorEnvelope = value && typeof value === 'object' && value.success === false
+
+            // Self-heal on 401: cookie expired / missing / revoked. The user
+            // can't recover by clicking Sync (they wouldn't even know to try)
+            // — we wipe local state and bounce to /login automatically so they
+            // can sign in again without doing anything in DevTools.
+            if (isErrorEnvelope && typeof value.error === 'string' && /^HTTP 401\b/.test(value.error)) {
+                _inflight.delete(key)
+                try { clearAuth() } catch { /* ignore */ }
+                if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+                    try { window.location.href = '/login' } catch { /* ignore */ }
+                }
+                return value
+            }
+
+            // Only cache SUCCESSFUL responses. Caching `{ success: false, ... }`
+            // would freeze the UI in an error state until the user manually
+            // synced — which is exactly the bug we keep hitting after auth
+            // changes. So skip the cache write on any error envelope.
+            if (!isErrorEnvelope) _writePersisted(key, value)
             _inflight.delete(key)
             return value
         })
         .catch(err => {
-            // Don't poison the cache with errors — next caller retries.
+            // Don't poison the cache with thrown errors either.
             _inflight.delete(key)
             throw err
         })
