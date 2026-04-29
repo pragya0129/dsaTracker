@@ -42,7 +42,7 @@ app.web.base-url=${APP_WEB_BASE_URL:http://localhost:5173}
 # true  → signups require email OTP
 # false → signups create the account directly (useful before your Resend
 #         sending domain is verified)
-app.signup.verification-enabled=${APP_SIGNUP_VERIFICATION_ENABLED:true}
+app.signup.verification-enabled=${APP_SIGNUP_VERIFICATION_ENABLED:false}
 
 # ── Mail (Resend) ─────────────────────────────────────────────────────────
 # provider: `resend` sends real email; `logging` writes to the app log.
