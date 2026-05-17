@@ -289,7 +289,7 @@ export default function DashboardPage() {
                 <main className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ textAlign: 'center', maxWidth: 460, padding: 48, background: 'linear-gradient(135deg,rgba(229,166,83,.1),rgba(159,143,227,.04))', border: '1px solid rgba(229,166,83,.2)', borderRadius: 24 }}>
                         <div style={{ fontSize: 60, marginBottom: 16 }}>🚀</div>
-                        <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Welcome to AlgoLedger</h2>
+                        <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Welcome to AlgoSprint</h2>
                         <p style={{ color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 24 }}>Link your coding platforms to unlock your performance intelligence dashboard.</p>
                         <button
                             onClick={() => navigate('/onboarding')}

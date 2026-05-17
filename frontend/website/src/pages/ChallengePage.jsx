@@ -206,7 +206,7 @@ function DuelSetup({ onBack, onSuccess, myEmail }) {
                         />
                     </div>
                     <div className="accent-hand" style={{ marginTop: 6, fontSize: 14, color: 'var(--text-muted)' }}>
-                        their AlgoLedger username — not their email
+                        their AlgoSprint username — not their email
                     </div>
                 </div>
 

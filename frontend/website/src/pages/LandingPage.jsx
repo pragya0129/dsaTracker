@@ -93,38 +93,7 @@ const HOW_STEPS = [
     },
 ]
 
-const PRICING = [
-    {
-        name: 'Student',
-        price: '$0',
-        cycle: 'forever',
-        features: [
-            'Up to 2 linked platforms',
-            'Daily streak + reminders',
-            '5 smart recs per day',
-            'Basic analytics',
-            'Community contests',
-        ],
-        cta: 'Start grinding',
-        featured: false,
-    },
-    {
-        name: 'Pro',
-        price: '$5',
-        cycle: 'per month',
-        features: [
-            'Unlimited platforms',
-            'Topic-level analytics',
-            'Unlimited smart recs',
-            'Private contests w/ friends',
-            'Priority reminders + support',
-            'Export your data, always',
-        ],
-        cta: 'Level up',
-        featured: true,
-        badge: 'most popular',
-    },
-]
+
 
 // Three reasons cross-platform practice actually builds a stronger coder —
 // no outcome numbers, no fake claims, just the mechanism.
@@ -190,8 +159,8 @@ const FAQS = [
         a: "Your streak follows the timezone you picked in Profile → Notifications. Pick one, forget about it. We do the math so a red-eye flight doesn't accidentally nuke 40 days of progress.",
     },
     {
-        q: "I'm a placement aspirant with literally no money. Any discount?",
-        a: "The Student tier stays free forever. If you need Pro features for interview prep and the $5 is a blocker, email us with your college ID — we comp 3 months, no questions asked.",
+        q: "I'm a placement aspirant with literally no money. Is it really free?",
+        a: "Yes — AlgoSprint is completely free to use. All features are available at no cost. No tiers, no paywalls, no hidden charges.",
     },
 ]
 
@@ -511,7 +480,7 @@ export default function LandingPage() {
                             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#F5EBD6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                     </div>
-                    <span className="ml-logo-text">Algo<span>Ledger</span></span>
+                    <span className="ml-logo-text">Algo<span>Sprint</span></span>
                     <span className="ml-tape-sticker">✨ beta</span>
                 </div>
                 <div className="ml-nav-links">
@@ -519,7 +488,6 @@ export default function LandingPage() {
                     <a href="#why" className="ml-nav-link">Why it works</a>
                     <a href="#how" className="ml-nav-link">How it works</a>
                     <a href="#team" className="ml-nav-link">Team</a>
-                    <a href="#pricing" className="ml-nav-link">Pricing</a>
                     <a href="#faq" className="ml-nav-link">FAQ</a>
                 </div>
                 <div className="ml-nav-actions">
@@ -552,7 +520,7 @@ export default function LandingPage() {
                     </h1>
 
                     <p className="ml-hero-sub">
-                        AlgoLedger turns LeetCode, Codeforces (and GFG soon)
+                        AlgoSprint turns LeetCode, Codeforces (and GFG soon)
                         into one <span className="ml-underline-amber">honest</span>
                         {' '}practice system. Cross-platform streaks, merged
                         topic coverage, daily recs pointed at your weakest
@@ -598,7 +566,7 @@ export default function LandingPage() {
                                 <span style={{ background: '#FEBC2E' }} />
                                 <span style={{ background: '#28C840' }} />
                             </div>
-                            <span className="ml-mock-url">algoledger.app/dashboard</span>
+                            <span className="ml-mock-url">algosprint.app/dashboard</span>
                         </div>
                         <div className="ml-mock-body">
                             <div className="ml-mock-stats">
@@ -736,7 +704,7 @@ export default function LandingPage() {
                                 <span className="ml-term-dot ml-term-dot-r" />
                                 <span className="ml-term-dot ml-term-dot-y" />
                                 <span className="ml-term-dot ml-term-dot-g" />
-                                <span className="ml-term-title">~/algoledger — loadFeatures.js</span>
+                                <span className="ml-term-title">~/algosprint — loadFeatures.js</span>
                                 <span className={`ml-term-run ${seqDone ? 'ml-term-run-done' : ''}`}>
                                     <span className="ml-term-run-dot" />
                                     {seqDone ? 'ready' : 'running'}
@@ -965,45 +933,7 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* ── PRICING ── */}
-            <section className="ml-pricing" id="pricing">
-                <div className="ml-section-eyebrow ml-reveal">pricing</div>
-                <h2 className="ml-section-title ml-reveal">
-                    Free while you learn. <span className="ml-italic">Pro</span> when you're serious.
-                </h2>
 
-                <div className="ml-price-grid">
-                    {PRICING.map((p, i) => (
-                        <div
-                            key={p.name}
-                            className={`ml-pcard ml-reveal ${p.featured ? 'ml-pcard-featured' : ''}`}
-                            style={{ transitionDelay: `${i * 0.1}s` }}
-                        >
-                            {p.badge && <div className="ml-pcard-badge">{p.badge}</div>}
-                            <div className="ml-pcard-name">{p.name}</div>
-                            <div className="ml-pcard-price">
-                                {p.price}
-                                <span className="ml-pcard-cycle">/{p.cycle}</span>
-                            </div>
-                            <div className="ml-pcard-divider" />
-                            <ul className="ml-pcard-list">
-                                {p.features.map(f => (
-                                    <li key={f}>
-                                        <span className="ml-check">✓</span> {f}
-                                    </li>
-                                ))}
-                            </ul>
-                            <button
-                                className={p.featured ? 'ml-cta-primary ml-full' : 'ml-cta-outline ml-full'}
-                                onClick={() => navigate('/signup')}
-                            >
-                                {p.cta}
-                                {p.featured && <div className="ml-cta-shine" />}
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </section>
 
             {/* ── FAQ ── */}
             <section className="ml-faq" id="faq">
@@ -1061,9 +991,7 @@ export default function LandingPage() {
                         <span className="ml-cta-arrow">→</span>
                         <div className="ml-cta-shine" />
                     </button>
-                    <div className="ml-handwritten" style={{ marginTop: 14, color: '#E5A653' }}>
-                        no credit card · quit anytime · seriously
-                    </div>
+
                 </div>
             </section>
 
@@ -1076,7 +1004,7 @@ export default function LandingPage() {
                                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#F5EBD6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </div>
-                        <span className="ml-logo-text" style={{ fontSize: 14 }}>Algo<span>Ledger</span></span>
+                        <span className="ml-logo-text" style={{ fontSize: 14 }}>Algo<span>Sprint</span></span>
                     </div>
                     <div className="ml-footer-links">
                         {['Privacy', 'Terms', 'Contact', 'Twitter', 'GitHub'].map(l => (
@@ -1085,7 +1013,7 @@ export default function LandingPage() {
                     </div>
                 </div>
                 <div className="ml-footer-bottom">
-                    <span>© 2026 AlgoLedger</span>
+                    <span>© 2026 AlgoSprint</span>
                     <span className="ml-handwritten" style={{ color: '#E5A653' }}>
                         made with ☕ and way too many late nights
                     </span>

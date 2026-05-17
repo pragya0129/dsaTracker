@@ -158,7 +158,29 @@ export default function SignupPage() {
                 <div className="auth-logo">
                     <div className="sidebar-logo-icon">A</div>
                     <span style={{ fontSize: 18, fontWeight: 700 }}>
-                        Algo<span className="accent-italic" style={{ fontWeight: 600 }}>Ledger</span>
+                        Algo<span className="accent-italic" style={{ fontWeight: 600 }}>Sprint</span>
+                    </span>
+                </div>
+
+                {/* Free-tier cold-start disclaimer */}
+                <div style={{
+                    background: 'rgba(229,166,83,0.10)',
+                    border: '1px dashed rgba(229,166,83,0.45)',
+                    borderRadius: '10px',
+                    padding: '11px 14px',
+                    marginBottom: '4px',
+                    fontSize: '13px',
+                    lineHeight: 1.55,
+                    color: '#c8943a',
+                    display: 'flex',
+                    gap: 9,
+                    alignItems: 'flex-start',
+                }}>
+                    <span style={{ fontSize: 16, marginTop: 1 }}>⏳</span>
+                    <span>
+                        <strong style={{ color: '#E5A653' }}>Heads up!</strong> Our backend runs on a free tier and may be
+                        sleeping. The first request can take <strong style={{ color: '#E5A653' }}>10–30 seconds</strong> to
+                        wake up — please be patient. Once it's up, everything runs smoothly. ☕
                     </span>
                 </div>
 
