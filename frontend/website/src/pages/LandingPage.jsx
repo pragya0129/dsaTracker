@@ -169,7 +169,7 @@ function Sparkle({ size = 18, color = '#E5A653', style }) {
     return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} aria-hidden>
             <path d="M12 2 L13.5 9.5 L21 11 L13.5 12.5 L12 20 L10.5 12.5 L3 11 L10.5 9.5 Z"
-                  fill={color} opacity="0.9" />
+                fill={color} opacity="0.9" />
         </svg>
     )
 }
@@ -184,7 +184,7 @@ function Squiggle({ width = 80, color = '#9F8FE3', style }) {
     return (
         <svg width={width} height="14" viewBox="0 0 80 14" fill="none" style={style} aria-hidden>
             <path d="M2 10 Q 10 2, 20 7 T 40 7 T 60 7 T 78 7"
-                  stroke={color} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                stroke={color} strokeWidth="2.5" strokeLinecap="round" fill="none" />
         </svg>
     )
 }
@@ -249,11 +249,11 @@ function CornerPeel({ color = '#E5A653', style }) {
     return (
         <svg width="32" height="32" viewBox="0 0 32 32" style={style} aria-hidden>
             <path d="M0 0 L32 0 L32 18 Q 24 20, 16 24 Q 8 28, 0 32 Z"
-                  fill="transparent" />
+                fill="transparent" />
             <path d="M32 18 Q 24 20, 16 24 Q 8 28, 0 32 L0 22 Q 8 22, 16 18 Q 24 14, 32 14 Z"
-                  fill={color} opacity="0.18" />
+                fill={color} opacity="0.18" />
             <path d="M32 18 Q 24 20, 16 24 Q 8 28, 0 32"
-                  stroke={color} strokeWidth="1" fill="none" opacity="0.45" />
+                stroke={color} strokeWidth="1" fill="none" opacity="0.45" />
         </svg>
     )
 }
@@ -311,12 +311,12 @@ function hl(line) {
             out.push(line.slice(last, m.index))
         }
         const cls =
-            m[1] ? 'ml-tk-s'  :
-            m[2] ? 'ml-tk-c'  :
-            m[3] ? 'ml-tk-k'  :
-            m[4] ? 'ml-tk-t'  :
-            m[5] ? 'ml-tk-n'  :
-            m[6] ? 'ml-tk-sym': ''
+            m[1] ? 'ml-tk-s' :
+                m[2] ? 'ml-tk-c' :
+                    m[3] ? 'ml-tk-k' :
+                        m[4] ? 'ml-tk-t' :
+                            m[5] ? 'ml-tk-n' :
+                                m[6] ? 'ml-tk-sym' : ''
         out.push(<span key={k++} className={cls}>{m[0]}</span>)
         last = HL_RE.lastIndex
     }
@@ -332,10 +332,10 @@ function hl(line) {
 //   3. finish with a summary line + switch the badge from "running" → "ready"
 // All state drives React re-renders so the terminal + stack stay in sync.
 function useFeatureSequence(sectionRef, features) {
-    const [lines, setLines]       = useState([])   // finalised lines in the terminal
-    const [active, setActive]     = useState('')   // line currently being typed
-    const [popped, setPopped]     = useState(0)    // how many feature cards have popped out
-    const [done, setDone]         = useState(false)
+    const [lines, setLines] = useState([])   // finalised lines in the terminal
+    const [active, setActive] = useState('')   // line currently being typed
+    const [popped, setPopped] = useState(0)    // how many feature cards have popped out
+    const [done, setDone] = useState(false)
 
     useEffect(() => {
         const section = sectionRef.current
@@ -461,6 +461,33 @@ export default function LandingPage() {
         return () => hero.removeEventListener('mousemove', handle)
     }, [])
 
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [showNavbar, setShowNavbar] = useState(true);
+
+    useEffect(() => {
+        let lastScrollY = window.scrollY;
+
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY < lastScrollY) {
+                setShowNavbar(true);
+            } else {
+                setShowNavbar(false);
+            }
+            if (currentScrollY < 80) {
+                setShowNavbar(true);
+            }
+
+            lastScrollY = currentScrollY;
+        };
+
+        window.addEventListener('scroll', handleScroll);
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, []);
+
     return (
         <div className="ml-root">
             <style>{ML_CSS}</style>
@@ -473,26 +500,202 @@ export default function LandingPage() {
             <div className="ml-vignette" />
 
             {/* ── NAV ── */}
-            <nav className={`ml-nav ${scrolled ? 'ml-nav-scrolled' : ''}`}>
-                <div className="ml-logo">
+            <nav
+                className={`ml-nav ${scrolled ? 'ml-nav-scrolled' : ''}`}
+                style={{
+                    position: 'fixed',
+                    top: showNavbar ? '14px' : '-120px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    transition: 'top 0.35s ease',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.8rem',
+                    width: 'min(1180px, calc(100% - 32px))',
+                    margin: '0 auto',
+                    padding: '0.9rem 1rem',
+
+                    flexDirection:
+                        window.innerWidth <= 768
+                            ? 'row'
+                            : 'row',
+                }}
+            >
+                <div
+                    className="ml-logo"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        flex:
+                            window.innerWidth <= 768
+                                ? 1
+                                : '0 0 auto',
+                        minWidth: 0,
+                    }}
+                >
                     <div className="ml-logo-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#F5EBD6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path
+                                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                                stroke="#F5EBD6"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
                         </svg>
                     </div>
-                    <span className="ml-logo-text">Algo<span>Sprint</span></span>
-                    <span className="ml-tape-sticker">✨ beta</span>
+
+                    <span
+                        className="ml-logo-text"
+                        style={{
+                            fontSize: '1rem',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        Algo<span>Sprint</span>
+                    </span>
+
+                    <span
+                        className="ml-tape-sticker"
+                        style={{
+                            fontSize: '0.65rem',
+                            padding: '0.15rem 0.45rem',
+                        }}
+                    >
+                        ✨ beta
+                    </span>
                 </div>
-                <div className="ml-nav-links">
+
+                <button
+                    className="ml-hamburger"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    aria-label="Toggle menu"
+                    style={{
+                        display: window.innerWidth <= 768 ? 'flex' : 'none',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '42px',
+                        height: '42px',
+                        fontSize: '1.6rem',
+                        color: '#F5EBD6',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                    }}
+                >
+                    {mobileMenuOpen ? '✕' : '☰'}
+                </button>
+
+                <div
+                    className={`ml-nav-links ${mobileMenuOpen ? 'active' : ''}`}
+                    style={{
+                        display:
+                            window.innerWidth <= 768
+                                ? mobileMenuOpen
+                                    ? 'flex'
+                                    : 'none'
+                                : 'flex',
+
+                        flexDirection:
+                            window.innerWidth <= 768
+                                ? 'column'
+                                : 'row',
+
+                        alignItems:
+                            window.innerWidth <= 768
+                                ? 'flex-start'
+                                : 'center',
+
+                        width:
+                            window.innerWidth <= 768
+                                ? '100%'
+                                : 'auto',
+
+                        gap: '1rem',
+
+                        marginTop:
+                            window.innerWidth <= 768
+                                ? '1rem'
+                                : '0',
+
+                        position:
+                            window.innerWidth <= 768
+                                ? 'static'
+                                : 'absolute',
+
+                        left:
+                            window.innerWidth <= 768
+                                ? 'auto'
+                                : '50%',
+
+                        transform:
+                            window.innerWidth <= 768
+                                ? 'none'
+                                : 'translateX(-50%)',
+                    }}
+                >
                     <a href="#features" className="ml-nav-link">Features</a>
                     <a href="#why" className="ml-nav-link">Why it works</a>
                     <a href="#how" className="ml-nav-link">How it works</a>
                     <a href="#team" className="ml-nav-link">Team</a>
                     <a href="#faq" className="ml-nav-link">FAQ</a>
                 </div>
-                <div className="ml-nav-actions">
-                    <button className="ml-btn-ghost" onClick={() => navigate('/login')}>Login</button>
-                    <button className="ml-btn-primary" onClick={() => navigate('/signup')}>
+
+                <div
+                    className={`ml-nav-actions ${mobileMenuOpen ? 'active' : ''}`}
+                    style={{
+                        display:
+                            window.innerWidth <= 768
+                                ? mobileMenuOpen
+                                    ? 'flex'
+                                    : 'none'
+                                : 'flex',
+
+                        flexDirection:
+                            window.innerWidth <= 768
+                                ? 'column'
+                                : 'row',
+
+                        alignItems: 'center',
+
+                        width:
+                            window.innerWidth <= 768
+                                ? '100%'
+                                : 'auto',
+
+                        gap: '0.8rem',
+
+                        marginTop:
+                            window.innerWidth <= 768
+                                ? '1rem'
+                                : '0',
+                        marginLeft:
+                            window.innerWidth <= 768
+                                ? '0'
+                                : 'auto',
+                    }}
+                >
+                    <button
+                        className="ml-btn-ghost"
+                        onClick={() => navigate('/login')}
+                        style={{
+                            width: mobileMenuOpen ? '100%' : 'auto',
+                        }}
+                    >
+                        Login
+                    </button>
+
+                    <button
+                        className="ml-btn-primary"
+                        onClick={() => navigate('/signup')}
+                        style={{
+                            width: mobileMenuOpen ? '100%' : 'auto',
+                        }}
+                    >
                         Get started <span className="ml-arrow">→</span>
                     </button>
                 </div>
@@ -571,10 +774,10 @@ export default function LandingPage() {
                         <div className="ml-mock-body">
                             <div className="ml-mock-stats">
                                 {[
-                                    { val: '342',   label: 'solved',     color: '#9F8FE3' },
+                                    { val: '342', label: 'solved', color: '#9F8FE3' },
                                     { val: '🔥 14', label: 'day streak', color: '#E5A653' },
-                                    { val: '48',    label: 'hard',       color: '#D88BA8' },
-                                    { val: '87%',   label: 'ready',      color: '#88C0A3' },
+                                    { val: '48', label: 'hard', color: '#D88BA8' },
+                                    { val: '87%', label: 'ready', color: '#88C0A3' },
                                 ].map(s => (
                                     <div className="ml-mock-stat" key={s.label}>
                                         <div className="ml-mock-stat-val" style={{ color: s.color }}>{s.val}</div>
@@ -586,8 +789,8 @@ export default function LandingPage() {
                                 {[
                                     { label: 'Arrays', pct: 78, color: '#9F8FE3' },
                                     { label: 'Graphs', pct: 52, color: '#88C0A3' },
-                                    { label: 'DP',     pct: 41, color: '#D88BA8' },
-                                    { label: 'Trees',  pct: 65, color: '#E5A653' },
+                                    { label: 'DP', pct: 41, color: '#D88BA8' },
+                                    { label: 'Trees', pct: 65, color: '#E5A653' },
                                 ].map(b => (
                                     <div className="ml-mock-bar-row" key={b.label}>
                                         <span className="ml-mock-bar-label">{b.label}</span>
@@ -716,13 +919,13 @@ export default function LandingPage() {
                                     // Prompt + output lines get a single flat colour;
                                     // actual code lines get full token highlighting.
                                     const isPrompt = t.startsWith('$')
-                                    const isOk     = t.startsWith('✓')
-                                    const isPop    = t.startsWith('→') || t.startsWith('↪')
+                                    const isOk = t.startsWith('✓')
+                                    const isPop = t.startsWith('→') || t.startsWith('↪')
                                     const cls =
                                         'ml-term-line' +
                                         (isPrompt ? ' ml-term-prompt' : '') +
-                                        (isOk     ? ' ml-term-ok'     : '') +
-                                        (isPop    ? ' ml-term-pop'    : '')
+                                        (isOk ? ' ml-term-ok' : '') +
+                                        (isPop ? ' ml-term-pop' : '')
                                     return (
                                         <div key={i} className={cls}>
                                             {hl(l)}
@@ -793,8 +996,8 @@ export default function LandingPage() {
                                                     data-taken={taken ? 'true' : 'false'}
                                                     style={{
                                                         '--s-accent': f.color,
-                                                        '--s-depth':  depth,
-                                                        '--s-index':  i,
+                                                        '--s-depth': depth,
+                                                        '--s-index': i,
                                                     }}
                                                 >
                                                     <span className="ml-fstack-item-num">{FEATURES.length - i}</span>
@@ -838,13 +1041,13 @@ export default function LandingPage() {
                                     data-stack-in={i < poppedCount ? 'true' : 'false'}
                                     style={{
                                         '--accent': f.color,
-                                        '--tape':   f.tape,
+                                        '--tape': f.tape,
                                         '--card-index': i,
                                         '--card-rot': `${([-1.4, 0.9, -0.6, 1.1, -1.0, 0.7])[i] ?? 0}deg`,
                                     }}
                                 >
                                     <div className="ml-fcard-tape" />
-                                    <CornerPeel color={f.color} style={{ position:'absolute', top:0, right:0, opacity:0.9 }} />
+                                    <CornerPeel color={f.color} style={{ position: 'absolute', top: 0, right: 0, opacity: 0.9 }} />
                                     <div className="ml-fcard-sticker">{f.sticker}</div>
                                     <div className="ml-fcard-title">{f.title}</div>
                                     <div className="ml-fcard-tag">{f.tag}</div>
@@ -881,10 +1084,10 @@ export default function LandingPage() {
                                 <div className="ml-step-connector" aria-hidden>
                                     <svg width="60" height="18" viewBox="0 0 60 18" fill="none">
                                         <path d="M2 9 Q 15 2, 30 9 T 56 9"
-                                              stroke="#E5A653" strokeWidth="2" strokeLinecap="round"
-                                              strokeDasharray="4 4" fill="none" opacity="0.55" />
+                                            stroke="#E5A653" strokeWidth="2" strokeLinecap="round"
+                                            strokeDasharray="4 4" fill="none" opacity="0.55" />
                                         <path d="M50 5 L58 9 L50 13" stroke="#E5A653" strokeWidth="2"
-                                              strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.75" />
+                                            strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.75" />
                                     </svg>
                                 </div>
                             )}
@@ -1001,7 +1204,7 @@ export default function LandingPage() {
                     <div className="ml-logo">
                         <div className="ml-logo-icon">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#F5EBD6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#F5EBD6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         </div>
                         <span className="ml-logo-text" style={{ fontSize: 14 }}>Algo<span>Sprint</span></span>
@@ -1127,7 +1330,7 @@ const ML_CSS = `
 
 /* ── NAV ── */
 .ml-nav {
-    position: sticky; top: 14px; z-index: 50;
+    position: fixed; top: 14px; z-index: 50;
     margin: 14px auto 0; max-width: 1180px; width: calc(100% - 28px);
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 18px;
