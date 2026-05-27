@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 
 /*
  * Landing page — "midnight library" studygram.
@@ -643,6 +645,7 @@ export default function LandingPage() {
                     <a href="#how" className="ml-nav-link">How it works</a>
                     <a href="#team" className="ml-nav-link">Team</a>
                     <a href="#faq" className="ml-nav-link">FAQ</a>
+                    <a href="#contact" className="ml-nav-link">Contact</a>
                 </div>
 
                 <div
@@ -1173,6 +1176,100 @@ export default function LandingPage() {
                         )
                     })}
                 </div>
+            </section>
+
+            {/* ── CONTACT ── */}
+            <section className="ml-contact" id="contact">
+
+                <div className="ml-section-eyebrow ml-reveal ml-contact-eyebrow">
+                    contact us
+                </div>
+
+
+
+                <div className="ml-contact-wrapper ml-reveal">
+
+                    {/* LEFT */}
+                    <div className="ml-contact-left">
+
+                        <h2 className="ml-section-title ml-reveal">
+                            We'd love to <span className="ml-italic">hear</span> from you.
+                        </h2>
+
+                        <p className="ml-section-sub ml-reveal">
+                            Questions, feature requests, bug reports, or collaboration ideas —
+                            send us a message and the AlgoSprint team will get back to you.
+                        </p>
+
+                    </div>
+
+                    {/* RIGHT */}
+                    <form
+                        className="ml-contact-form"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+
+                            const formData = new FormData(e.target);
+
+                            const name = formData.get("name");
+                            const email = formData.get("email");
+                            const message = formData.get("message");
+
+                            if (
+                                !name.trim() ||
+                                !email.trim() ||
+                                !message.trim()
+                            ) {
+                                toast.error("Please fill all fields.");
+                                return;
+                            }
+
+                            toast.success("Message submitted successfully!");
+
+                            e.target.reset();
+                        }}
+                    >
+
+                        <div className="ml-contact-group">
+                            <label>Name</label>
+
+                            <input
+                                type="text"
+                                name="name"
+                                placeholder="Enter your name"
+                            />
+                        </div>
+
+                        <div className="ml-contact-group">
+                            <label>Email</label>
+
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="Enter your email"
+                            />
+                        </div>
+
+                        <div className="ml-contact-group">
+                            <label>Message</label>
+
+                            <textarea
+                                name="message"
+                                placeholder="Write your message..."
+                            ></textarea>
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="ml-cta-primary ml-contact-btn"
+                        >
+                            Send Message →
+                        </button>
+
+                    </form>
+
+                </div>
+
             </section>
 
             {/* ── BIG CTA ── */}
