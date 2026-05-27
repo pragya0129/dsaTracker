@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from "react-router-dom";
 
 /*
  * Landing page — "midnight library" studygram.
@@ -643,6 +644,7 @@ export default function LandingPage() {
                     <a href="#how" className="ml-nav-link">How it works</a>
                     <a href="#team" className="ml-nav-link">Team</a>
                     <a href="#faq" className="ml-nav-link">FAQ</a>
+                    <Link className="ml-nav-link" to="/contact">Contact Us</Link>
                 </div>
 
                 <div
