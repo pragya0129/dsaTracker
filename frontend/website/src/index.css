@@ -382,6 +382,41 @@ body::before {
 }
 .notif-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
 .notif-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; background: var(--violet); border-radius: 50%; border: 1.5px solid var(--bg-secondary); }
+/* ── Topbar Responsiveness ── */
+@media (max-width: 768px) {
+  .topbar {
+    left: 0;
+    padding: 0 16px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--topbar-height);
+  }
+  .topbar-title {
+    font-size: 14px;
+  }
+  .topbar-sub {
+    font-size: 11px;
+  }
+  .topbar-streak {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  .topbar-right {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    padding: 0 10px;
+  }
+  .topbar-streak {
+    display: none;
+  }
+  .topbar-title {
+    font-size: 13px;
+  }
+}
 
 /* ============================================================
    STAT CARDS
