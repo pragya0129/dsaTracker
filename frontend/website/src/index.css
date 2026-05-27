@@ -383,7 +383,7 @@ body::before {
 .notif-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
 .notif-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; background: var(--violet); border-radius: 50%; border: 1.5px solid var(--bg-secondary); }
 /* ── Topbar Responsiveness ── */
-@media (max-width: 768px) {
+@media (max-width: 860px) {
   .topbar {
     left: 0;
     padding: 0 16px;
