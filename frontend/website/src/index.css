@@ -2924,3 +2924,49 @@ body::before {
 .ml-btn-primary:hover .ml-arrow {
   transform: translateX(3px);
 }
+
+/* ── FOOTER ── */
+.ml-footer {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 40px;
+  border-top: 1px dashed var(--edge);
+}
+
+.ml-footer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.ml-footer-links {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.ml-footer-link {
+  font-size: 13px;
+  color: var(--ink-mute);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.ml-footer-link:hover {
+  color: var(--ink);
+}
+
+.ml-footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}

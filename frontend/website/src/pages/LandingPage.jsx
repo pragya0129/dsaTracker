@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 /*
  * Landing page — "midnight library" studygram.
@@ -1070,30 +1071,7 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* ── FOOTER ── */}
-            <footer className="ml-footer">
-                <div className="ml-footer-top">
-                    <div className="ml-logo">
-                        <div className="ml-logo-icon">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#F5EBD6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </div>
-                        <span className="ml-logo-text" style={{ fontSize: 14 }}>Algo<span>Sprint</span></span>
-                    </div>
-                    <div className="ml-footer-links">
-                        {['Privacy', 'Terms', 'Contact', 'Twitter', 'GitHub'].map(l => (
-                            <a key={l} href="#" className="ml-footer-link">{l}</a>
-                        ))}
-                    </div>
-                </div>
-                <div className="ml-footer-bottom">
-                    <span>© 2026 AlgoSprint</span>
-                    <span className="ml-handwritten" style={{ color: '#E5A653' }}>
-                        made with ☕ and way too many late nights
-                    </span>
-                </div>
-            </footer>
+            <Footer />
         </div>
     )
 }
